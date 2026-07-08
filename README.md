@@ -5,7 +5,7 @@
 <h1 align="center">Slopad</h1>
 
 <p align="center">
-  WIP Swift block editor app, currently focused on its reusable editor engine.
+  WIP Swift block text editor app, currently focused on its reusable editor engine.
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb">
 </p>
 
-Slopad is a work-in-progress Swift app project for a block editor. The app layer is
+Slopad is a work-in-progress Swift app project for a block text editor. The app layer is
 still early; most of the current codebase is the reusable editor foundation that the app
 will use.
 
@@ -56,42 +56,54 @@ facts, and draws using the platform backend it chose.
 ## Engine Architecture
 
 ```mermaid
-flowchart TB
-    AppKitUI["UI Framework\nSlopadAppKitUI"]
-    Engine["SlopadEngine\nEditorSession facade"]
-    Vocabulary["SlopadCoreModel\npublic vocabulary + package Document"]
-    Model["SlopadEditorModel\nsemantic document / selection / commands"]
-    Layout["SlopadBlockLayout\nvisible order / geometry / invalidation"]
-    HeightIndex["BlockHeightIndexStorage\nblock y/height prefix sums"]
-    Tree["SlopadDataStructure\nPrefixSumRedBlackTree"]
-    TextLayout["TextLayout\nbackend seam + layout cache"]
-    TextKit["Text Engine\nSlopadTextKit"]
+flowchart LR
+    subgraph EngineLayer["Engine Layer (Headless)"]
+        direction TB
 
-    AppKitUI --> Engine
-    AppKitUI --> TextKit
-    Engine -.-> Vocabulary
-    Engine --> Model
-    Engine --> Layout
-    Layout --> HeightIndex
-    HeightIndex --> Tree
-    Layout --> TextLayout
-    TextKit -. implements .-> TextLayout
+        Session["SlopadEngine<br/>(EditorSession)"]
+
+        subgraph RuntimeOwners["Semantic + Layout Owners"]
+            direction LR
+            Model["SlopadEditorModel<br/>(EditorModel)"]
+            Layout["SlopadBlockLayout<br/>(BlockLayout + TextLayout axis)"]
+        end
+
+        subgraph Foundation["Foundation & Data"]
+            direction LR
+            Core["SlopadCoreModel<br/>(Document/Block + public vocabulary)"]
+            DataStructure["SlopadDataStructure<br/>(PrefixSumRedBlackTree)"]
+        end
+
+        Session --> Model
+        Session --> Layout
+        Model --> Core
+        Layout --> Core
+        Layout --> DataStructure
+    end
+
+    subgraph PlatformLayer["Platform Layer"]
+        direction TB
+        AppKitUI["SlopadAppKitUI<br/>(AppKit adapter)"]
+        TextKit["SlopadTextKit<br/>(TextKit2 backend)"]
+
+        AppKitUI --> TextKit
+    end
+
+    AppKitUI --> Session
+    TextKit -. implements text layout seam .-> Core
 ```
 
-### Architecture Components
+### Layer Responsibilities
 
-- `SlopadEngine`: host-facing `EditorSession` facade. It accepts input, composes semantic
-  and layout owners, and returns render, hit-test, reveal, and redraw facts.
-- `SlopadEditorModel`: canonical document, selection, command, transaction, history, and
-  semantic change owner.
-- `SlopadBlockLayout`: visible order, geometry, invalidation, text-layout cache, and
-  block height index owner.
-- `SlopadCoreModel`: shared contracts, canonical `Document`/`Block` values, and
-  `BlockTextLayoutProtocol`.
-- `SlopadDataStructure`: pure storage such as `PrefixSumRedBlackTree`, with no editor or
-  platform vocabulary.
-- UI & Text framework layer: outside the engine. The current path uses AppKit through
-  `SlopadAppKitUI` and TextKit2 through `SlopadTextKit`.
+| Layer             | Owner                 | Responsibility                                                                                                                                                        |
+| ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Platform Layer    | `SlopadAppKitUI`      | Reusable AppKit callback, drawing, focus, scroll, and block chrome adapter around `EditorSession`.                                                                    |
+| Platform Layer    | `SlopadTextKit`       | TextKit2 implementation of the text layout seam: measurement, line fragments, caret/selection rects, hit testing, and drawing helpers.                                |
+| Engine Layer      | `SlopadEngine`        | Host-facing `EditorSession` facade. It accepts native-independent input, composes semantic and layout owners, and returns render, hit-test, reveal, and redraw facts. |
+| Engine Layer      | `SlopadEditorModel`   | Canonical document, selection, command, transaction, history, and semantic change owner.                                                                              |
+| Engine Layer      | `SlopadBlockLayout`   | Visible order, y/height geometry, invalidation, reveal/hit-test geometry, marker projection, text-layout cache, and block height index owner.                         |
+| Foundation & Data | `SlopadCoreModel`     | Shared public vocabulary, canonical `Document`/`Block` values, and backend seam values such as `BlockTextLayoutProtocol`.                                             |
+| Foundation & Data | `SlopadDataStructure` | Pure storage such as `PrefixSumRedBlackTree`, with no editor, layout, or platform vocabulary.                                                                         |
 
 `SlopadEditorModel` and `SlopadBlockLayout` do not import each other. `EditorSession`
 combines their results and translates semantic changes into layout invalidation.
