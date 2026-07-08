@@ -1,0 +1,86 @@
+// MARK: - BlockContent EditingMutation
+
+extension BlockContent {
+    package mutating func insert(_ insertedText: String, at offset: Int) {
+        let offset = TextRange.point(offset).clamped(to: text.count).lowerBound
+        let index = text.indexAtGraphemeOffset(offset)
+        text.insert(contentsOf: insertedText, at: index)
+        let delta = insertedText.count
+        marks = marks.compactMap { mark in
+            var range = mark.range
+            if range.lowerBound >= offset {
+                range = range.shifted(by: delta)
+            } else if range.upperBound > offset {
+                range.upperBound += delta
+            }
+            return InlineMark(kind: mark.kind, range: range)
+        }
+        normalizeMarks()
+        revision += 1
+    }
+
+    package mutating func delete(_ range: TextRange) {
+        let clamped = range.clamped(to: text.count)
+        guard !clamped.isEmpty else { return }
+        let lower = text.indexAtGraphemeOffset(clamped.lowerBound)
+        let upper = text.indexAtGraphemeOffset(clamped.upperBound)
+        text.removeSubrange(lower..<upper)
+        marks = marks.compactMap { mark in
+            let lower = Self.mapOffsetAfterDeleting(mark.range.lowerBound, deleted: clamped)
+            let upper = Self.mapOffsetAfterDeleting(mark.range.upperBound, deleted: clamped)
+            guard upper > lower else { return nil }
+            return InlineMark(kind: mark.kind, range: TextRange(lower, upper))
+        }
+        normalizeMarks()
+        revision += 1
+    }
+
+    package mutating func addMark(kind: BlockContent.InlineMark.Kind, range: TextRange) {
+        let clamped = range.clamped(to: text.count)
+        guard !clamped.isEmpty else { return }
+        marks.append(InlineMark(kind: kind, range: clamped))
+        normalizeMarks()
+        revision += 1
+    }
+
+    package mutating func clearMarks(in range: TextRange) {
+        let clamped = range.clamped(to: text.count)
+        guard !clamped.isEmpty else { return }
+        marks = marks.flatMap { mark -> [InlineMark] in
+            guard mark.range.intersects(clamped) else { return [mark] }
+
+            var remaining: [InlineMark] = []
+            if mark.range.lowerBound < clamped.lowerBound {
+                remaining.append(
+                    InlineMark(
+                        kind: mark.kind,
+                        range: TextRange(mark.range.lowerBound, clamped.lowerBound)
+                    ))
+            }
+            if clamped.upperBound < mark.range.upperBound {
+                remaining.append(
+                    InlineMark(
+                        kind: mark.kind,
+                        range: TextRange(clamped.upperBound, mark.range.upperBound)
+                    ))
+            }
+            return remaining
+        }
+        normalizeMarks()
+        revision += 1
+    }
+
+    private mutating func normalizeMarks() {
+        marks = BlockContent.normalizedMarks(marks, textLength: text.count)
+    }
+
+    private static func mapOffsetAfterDeleting(_ offset: Int, deleted: TextRange) -> Int {
+        if offset <= deleted.lowerBound {
+            return offset
+        }
+        if offset >= deleted.upperBound {
+            return offset - deleted.length
+        }
+        return deleted.lowerBound
+    }
+}

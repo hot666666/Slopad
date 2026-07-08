@@ -1,0 +1,7 @@
+scenario,blockCount,rbtreeAvgFPS,arrayAvgFPS,fpsDeltaArrayMinusRBTree,rbtreeAvgFrameMs,arrayAvgFrameMs,deltaFrameMsArrayMinusRBTree,deltaFramePct,rbtreeP95FrameMs,arrayP95FrameMs,deltaP95FrameMs,rbtreeOver16ms,arrayOver16ms,rbtreeAvgOperationMs,arrayAvgOperationMs,deltaOperationMs,judgement
+subtree-delete,100,129.694,156.164,26.470,7.710,6.404,-1.307,-16.950,9.849,8.260,-1.589,0,0,0.094,0.040,-0.054,array faster
+subtree-delete,1000,919.836,616.048,-303.788,1.087,1.623,0.536,49.312,1.246,1.754,0.508,0,0,0.494,0.423,-0.070,rbtree faster
+subtree-delete,10000,115.340,19.551,-95.789,8.670,51.148,42.478,489.943,9.593,53.966,44.374,0,60,5.785,5.266,-0.518,rbtree faster
+subtree-reorder,100,116.260,153.355,37.095,8.601,6.521,-2.081,-24.189,11.788,6.971,-4.818,0,0,0.149,0.085,-0.064,array faster
+subtree-reorder,1000,96.245,107.950,11.705,10.390,9.264,-1.127,-10.843,14.002,10.076,-3.926,1,0,0.789,0.567,-0.222,array faster
+subtree-reorder,10000,53.122,8.886,-44.236,18.824,112.534,93.709,497.806,23.615,123.011,99.397,60,60,6.543,6.649,0.106,rbtree faster

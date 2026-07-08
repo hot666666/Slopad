@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "uikit-coding-style": {
+      "source": "hot666666/skills",
+      "sourceType": "github",
+      "skillPath": "skills/uikit-coding-style/SKILL.md",
+      "computedHash": "0d1a2d52c95f3ffd12f6938236aecc5fa190df4029a46823189a5471fb3d365a"
+    }
+  }
+}

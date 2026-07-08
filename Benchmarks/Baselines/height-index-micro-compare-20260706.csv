@@ -1,0 +1,3 @@
+implementation,blocks,buildSeconds,querySeconds,updateSeconds,queries,updates,checksum
+rbtree,100000,0.452600583,0.012807750,0.017393667,10000,10000,115612915
+array-cache,100000,0.045406625,0.003345959,0.001369125,10000,10000,115612915
