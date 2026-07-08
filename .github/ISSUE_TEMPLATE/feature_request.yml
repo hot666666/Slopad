@@ -1,0 +1,101 @@
+name: Feature request
+description: Suggest an improvement or new capability.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or limitation should this address?
+      placeholder: Describe the problem or use case.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change?
+      placeholder: Describe the desired behavior or API.
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Proposed owner
+      description: Which layer should own the behavior or contract?
+      options:
+        - Needs owner decision
+        - SlopadAppKitUI
+        - SlopadEngine / EditorSession
+        - SlopadEditorModel
+        - SlopadBlockLayout
+        - SlopadCoreModel
+        - SlopadTextKit
+        - SlopadDataStructure
+        - Debug or benchmark target
+    validations:
+      required: true
+  - type: textarea
+    id: owner-decision
+    attributes:
+      label: Owner decision
+      description: Explain why that layer should own the behavior, state, or contract.
+      placeholder: Producer/consumer flow, carried fields, canonical state, and derived state.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List the observable outcomes that make this complete.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List blocking issues or PRs. Use "Blocked by #123" or "Depends on PR #123" so automation can detect it.
+      placeholder: |
+        - None
+        - Blocked by #
+    validations:
+      required: false
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: What should this issue intentionally not change?
+      placeholder: |
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Expected verification
+      description: Which tests, builds, scripts, or manual checks should prove the change?
+      placeholder: |
+        - [ ] Focused unit or integration test:
+        - [ ] `swift test --quiet`
+        - [ ] `swift build --product SlopadAppKitUI --quiet`
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider?
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add examples, links, screenshots, or related issues.
+    validations:
+      required: false

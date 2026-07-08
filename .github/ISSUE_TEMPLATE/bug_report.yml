@@ -1,0 +1,106 @@
+name: Bug report
+description: Report a reproducible problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: Describe the problem in one or two sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce it?
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Swift/Xcode version, package target, branch, or commit when relevant.
+      placeholder: |
+        - OS:
+        - Swift/Xcode:
+        - Target:
+        - Branch/commit:
+    validations:
+      required: false
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Suspected owner
+      description: Which layer most likely owns the failing behavior?
+      options:
+        - Unknown / needs triage
+        - SlopadAppKitUI
+        - SlopadEngine / EditorSession
+        - SlopadEditorModel
+        - SlopadBlockLayout
+        - SlopadCoreModel
+        - SlopadTextKit
+        - SlopadDataStructure
+        - Debug or benchmark target
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: What observable behavior proves this is fixed?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Expected verification
+      description: Which tests, builds, scripts, or manual checks should prove the fix?
+      placeholder: |
+        - [ ] Focused regression test:
+        - [ ] `swift test --quiet`
+        - [ ] `swift build --product SlopadAppKitUI --quiet`
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List blocking issues or PRs. Use "Blocked by #123" or "Depends on PR #123" so automation can detect it.
+      placeholder: |
+        - None
+        - Blocked by #
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add logs, screenshots, links, or notes that may help.
+    validations:
+      required: false

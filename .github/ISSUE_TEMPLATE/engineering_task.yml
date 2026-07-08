@@ -1,0 +1,123 @@
+name: Engineering task
+description: Plan a focused refactor, architecture cleanup, or workflow task.
+title: "[Task]: "
+labels: ["task"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What boundary, workflow, or maintainability problem should this task address?
+      placeholder: Describe the current issue in one or two sentences.
+    validations:
+      required: true
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task type
+      options:
+        - Boundary cleanup
+        - Refactor
+        - Architecture audit
+        - Workflow setup
+        - Test coverage
+        - Documentation
+        - Performance
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      description: Which layer or repository surface owns the changed behavior or contract?
+      options:
+        - Needs owner decision
+        - GitHub workflow
+        - SlopadAppKitUI
+        - SlopadEngine / EditorSession
+        - SlopadEditorModel
+        - SlopadBlockLayout
+        - SlopadCoreModel
+        - SlopadTextKit
+        - SlopadDataStructure
+        - Debug or benchmark target
+    validations:
+      required: true
+  - type: textarea
+    id: owner-decision
+    attributes:
+      label: Owner decision
+      description: Explain the producer/consumer flow and why this owner should carry the invariant.
+      placeholder: |
+        - Producer:
+        - Consumer:
+        - Canonical state:
+        - Derived state or projection:
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What files, modules, behaviors, or documents are in scope?
+      placeholder: |
+        - In scope:
+        - Out of scope:
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: List blocking issues or PRs. Use "Blocked by #123" or "Depends on PR #123" so automation can detect it.
+      placeholder: |
+        - None
+        - Blocked by #
+        - Depends on PR #
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: List at least three completion criteria.
+      placeholder: |
+        - [ ] Observable behavior or boundary is changed:
+        - [ ] Focused test or verification covers the change:
+        - [ ] Documentation is updated, or no doc update is needed:
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: What should not be changed in this task?
+      placeholder: |
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Expected verification
+      description: Which tests, builds, scripts, benchmarks, or manual checks should prove completion?
+      placeholder: |
+        - [ ] Focused test:
+        - [ ] `swift test --quiet`
+        - [ ] `swift build --product SlopadAppKitUI --quiet`
+        - [ ] `swift build --product SlopadDebugApp --quiet`
+        - [ ] `swift build --product SlopadUIBenchmarkApp --quiet`
+        - [ ] `git diff --check`
+    validations:
+      required: true
+  - type: textarea
+    id: review-instructions
+    attributes:
+      label: Review instructions
+      description: What should a reviewer check using only the issue, PR description, and diff?
+      placeholder: |
+        - Check owner boundary:
+        - Check behavior regression risk:
+        - Check missing tests:
+    validations:
+      required: true
