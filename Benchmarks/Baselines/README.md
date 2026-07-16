@@ -53,3 +53,17 @@ host through block range selection plus delete or drag reorder.
 
 See `docs/APPKIT_UI_BENCHMARK_RESULTS.md` for commands and AppKit host-frame
 interpretation. See `docs/HEIGHT_INDEX_STORAGE_EXPERIMENT.md` for the storage decision.
+
+## Runtime Style Replacement
+
+Generated on 2026-07-17 for the synchronized AppKit runtime style contract.
+
+- `appkit-runtime-style-summary-20260717.csv`: release-build aggregate metrics for the
+  `style-change` scenario at `100`, `1000`, and `10000` blocks, with 60 frames at each
+  scale.
+
+The scenario alternates two geometry-affecting `TextKitEditorStyle` values through the
+public `updateEditorStyle(_:)` action. Operation time therefore includes pipeline creation,
+engine backend replacement, full text-layout invalidation, and synchronized surface
+rendering. Forced AppKit display and TextKit drawing are recorded separately in the same
+frame.

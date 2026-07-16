@@ -102,6 +102,8 @@ Each scenario ran 60 measured frames at block counts `100`, `1000`, and `10000`.
   it. Because deletion is destructive, the document is reset before each measured frame.
 - `subtree-reorder`: uses the same tree fixture, selects a visible subtree range, then
   drags it near an outside block.
+- `style-change`: alternates geometry-affecting editor styles through the synchronized
+  public AppKit action.
 
 Subtree scenarios use the same subtree-size rule as the session benchmark.
 
@@ -157,6 +159,34 @@ storages: default RBTree, SLOPAD_HEIGHT_INDEX_ARRAY
 
 Pass `--subtree-node-count N` to inspect subtree-size sensitivity within a fixed document
 size.
+
+## Runtime Style Replacement Follow-up
+
+Date: 2026-07-17
+
+Environment: macOS 27.0 (26A5378n), Xcode 27.0 (27A5194q), arm64, release build
+
+The `style-change` scenario alternates two geometry-affecting `TextKitEditorStyle` values
+through the public `updateEditorStyle(_:)` action on every measured frame. The timed
+operation includes construction of the coherent TextKit layout/render/decoration pipeline,
+engine backend replacement, cache invalidation, and the action's synchronized render. The
+normal runner render immediately afterward is warm, which is why its separate
+`avgRenderAndSyncMs` is close to zero.
+
+| Blocks | Avg operation | Avg frame | P95 frame | Frames >16.67ms | Frames >33.33ms |
+| -----: | ------------: | --------: | --------: | ---------------: | ---------------: |
+|    100 |       7.311ms |  16.749ms |  17.327ms |          33 / 60 |           0 / 60 |
+|   1000 |       4.130ms |  14.085ms |  14.554ms |           0 / 60 |           0 / 60 |
+|  10000 |      14.643ms |  24.867ms |  25.506ms |          60 / 60 |           0 / 60 |
+
+This cost is paid only when a different style is installed; ordinary input, layout, and
+drawing hot paths do not gain a new lock or dynamic backend lookup, and reinstalling an
+equal style is a no-op. At 10,000 blocks the contract is appropriate for infrequent editor
+settings or theme changes, not per-frame font/spacing animation. A future paint-only
+appearance contract should avoid text-layout replacement entirely.
+
+The checked-in aggregate is
+`Benchmarks/Baselines/appkit-runtime-style-summary-20260717.csv`.
 
 ## Default UI Results
 

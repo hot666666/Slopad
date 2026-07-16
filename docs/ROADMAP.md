@@ -44,7 +44,7 @@ platform extension philosophy.
   TextKit backend consumes inline runs for measurement and rendering.
 - The AppKit UI benchmark harness covers scroll, native insert, composition, height
   expansion, block selection, block reorder, mixed interaction, subtree delete, and
-  subtree reorder at 100/1000/10000 block scales.
+  subtree reorder plus runtime style replacement at 100/1000/10000 block scales.
 
 ## Current Product Gaps
 

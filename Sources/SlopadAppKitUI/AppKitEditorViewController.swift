@@ -9,6 +9,24 @@ import SlopadEngine
 public final class AppKitEditorViewController: NSViewController {
     // MARK: - Private Types
 
+    @MainActor
+    private struct TextPipeline {
+        let style: TextKitEditorStyle
+        let textLayouter: TextKitBlockTextLayouter
+        let textRenderer: TextKitBlockRenderer
+        let textInputDecorationRenderer: AppKitTextInputDecorationRenderer
+
+        init(style: TextKitEditorStyle) {
+            let textLayouter = TextKitBlockTextLayouter(style: style)
+            self.style = style
+            self.textLayouter = textLayouter
+            self.textRenderer = TextKitBlockRenderer(style: style)
+            self.textInputDecorationRenderer = AppKitTextInputDecorationRenderer(
+                textLayouter: textLayouter
+            )
+        }
+    }
+
     private enum UX {
         static let initialViewSize = NSSize(width: 920, height: 680)
         static let minimumViewportDimension: CGFloat = 1
@@ -150,7 +168,9 @@ public final class AppKitEditorViewController: NSViewController {
 
     // MARK: - Public State
 
-    public let editorStyle: TextKitEditorStyle
+    public var editorStyle: TextKitEditorStyle {
+        textPipeline.style
+    }
     public private(set) var snapshot: EditorSessionSnapshot?
     public var blockChromeRenderer: any AppKitBlockChromeRenderer
     public var onSnapshotChanged: ((EditorSessionSnapshot) -> Void)?
@@ -169,9 +189,16 @@ public final class AppKitEditorViewController: NSViewController {
 
     // MARK: - Private State
 
-    private let textLayouter: TextKitBlockTextLayouter
-    private let textRenderer: TextKitBlockRenderer
-    private let textInputDecorationRenderer: AppKitTextInputDecorationRenderer
+    private var textPipeline: TextPipeline
+    private var textLayouter: TextKitBlockTextLayouter {
+        textPipeline.textLayouter
+    }
+    private var textRenderer: TextKitBlockRenderer {
+        textPipeline.textRenderer
+    }
+    private var textInputDecorationRenderer: AppKitTextInputDecorationRenderer {
+        textPipeline.textInputDecorationRenderer
+    }
     private lazy var editorCanvasView = AppKitEditorCanvasView(handler: self)
     private lazy var activeInputController = AppKitActiveInputController(owner: self)
     private lazy var dragAutoscrollController = AppKitDragAutoscrollController(
@@ -203,17 +230,12 @@ public final class AppKitEditorViewController: NSViewController {
         blockChromeRenderer: any AppKitBlockChromeRenderer = AppKitDefaultBlockChromeRenderer(),
         focusOnAppear: Bool = false
     ) {
-        let textLayouter = TextKitBlockTextLayouter(style: style)
-        self.editorStyle = style
-        self.textLayouter = textLayouter
-        self.textRenderer = TextKitBlockRenderer(style: style)
-        self.textInputDecorationRenderer = AppKitTextInputDecorationRenderer(
-            textLayouter: textLayouter
-        )
+        let textPipeline = TextPipeline(style: style)
+        self.textPipeline = textPipeline
         self.session = EditorSession(
             blocks: blocks,
             selection: selection,
-            textLayouter: textLayouter
+            textLayouter: textPipeline.textLayouter
         )
         self.blockChromeRenderer = blockChromeRenderer
         self.focusOnAppear = focusOnAppear
@@ -266,6 +288,21 @@ public final class AppKitEditorViewController: NSViewController {
             )
         )
         renderAndSyncSurface(makeFirstResponder: true, scrollSelectionIntoView: true)
+    }
+
+    /// Replaces the adapter-owned TextKit layout and drawing pipeline from one style.
+    ///
+    /// The operation synchronizes the Session snapshot and canvas before returning while
+    /// preserving live marked text, native selection, viewport, and responder ownership.
+    public func updateEditorStyle(_ style: TextKitEditorStyle) {
+        guard style != editorStyle else { return }
+
+        let replacementPipeline = TextPipeline(style: style)
+        _ = session.replaceTextLayoutBackend(with: replacementPipeline.textLayouter)
+        textPipeline = replacementPipeline
+        renderCanvasPreservingNativeSurface(
+            nativeStateIsAuthoritative: hasActiveNativeMarkedText
+        )
     }
 
     public func resetDocument(

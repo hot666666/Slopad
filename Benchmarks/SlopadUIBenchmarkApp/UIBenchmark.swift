@@ -24,6 +24,7 @@ private enum UIBenchmarkScenario: String {
     case blockReorder = "block-reorder"
     case subtreeDelete = "subtree-delete"
     case subtreeReorder = "subtree-reorder"
+    case styleChange = "style-change"
 
     init(argument: String) {
         self = UIBenchmarkScenario(rawValue: argument) ?? .scroll
@@ -34,7 +35,7 @@ private enum UIBenchmarkScenario: String {
         case .subtreeDelete, .subtreeReorder:
             return true
         case .scroll, .nativeInsert, .composition, .heightExpansion, .blockSelection,
-            .blockReorder, .mixed:
+            .blockReorder, .styleChange, .mixed:
             return false
         }
     }
@@ -44,7 +45,7 @@ private enum UIBenchmarkScenario: String {
         case .subtreeDelete:
             return true
         case .scroll, .nativeInsert, .composition, .heightExpansion, .blockSelection,
-            .blockReorder, .subtreeReorder, .mixed:
+            .blockReorder, .subtreeReorder, .styleChange, .mixed:
             return false
         }
     }
@@ -181,7 +182,6 @@ enum UIBenchmarkFixture {
 final class UIBenchmarkHost {
     // MARK: - Dependencies
 
-    let editorStyle = TextKitEditorStyle()
     let editorViewController: AppKitEditorViewController
 
     // MARK: - State
@@ -195,6 +195,7 @@ final class UIBenchmarkHost {
         scenario: String,
         subtreeNodeCount: Int?
     ) {
+        let editorStyle = TextKitEditorStyle()
         let fixture = UIBenchmarkFixture.makeBlocks(
             count: blockCount,
             scenario: UIBenchmarkScenario(argument: scenario),
@@ -226,6 +227,10 @@ final class UIBenchmarkHost {
 
     var scrollView: NSScrollView {
         editorViewController.scrollView
+    }
+
+    var editorStyle: TextKitEditorStyle {
+        editorViewController.editorStyle
     }
 
     func renderAndSyncSurface(
@@ -262,6 +267,10 @@ final class UIBenchmarkHost {
 
     func scrollDocument(to y: Double) {
         editorViewController.scrollDocumentWithoutRendering(to: y)
+    }
+
+    func updateEditorStyle(_ style: TextKitEditorStyle) {
+        editorViewController.updateEditorStyle(style)
     }
 
     fileprivate func resetUIBenchmarkDocument(
@@ -600,7 +609,7 @@ enum UIBenchmarkRunner {
             )
             viewController.renderAndSyncSurface(makeFirstResponder: true)
 
-        case .blockSelection, .blockReorder, .subtreeDelete, .subtreeReorder:
+        case .blockSelection, .blockReorder, .subtreeDelete, .subtreeReorder, .styleChange:
             viewController.renderAndSyncSurface(makeFirstResponder: false)
 
         case .scroll:
@@ -618,7 +627,7 @@ enum UIBenchmarkRunner {
         case .scroll, .mixed:
             break
         case .nativeInsert, .composition, .heightExpansion, .blockSelection, .blockReorder,
-            .subtreeDelete, .subtreeReorder:
+            .subtreeDelete, .subtreeReorder, .styleChange:
             return Double(viewController.scrollView.contentView.bounds.origin.y)
         }
 
@@ -670,6 +679,10 @@ enum UIBenchmarkRunner {
             reorderSubtree(frame: frame, options: options, viewController: viewController)
             return "subtreeReorder"
 
+        case .styleChange:
+            updateStyle(frame: frame, viewController: viewController)
+            return "updateEditorStyle"
+
         case .mixed:
             switch frame % 6 {
             case 0:
@@ -691,6 +704,22 @@ enum UIBenchmarkRunner {
                 return "blockReorder"
             }
         }
+    }
+
+    private static func updateStyle(
+        frame: Int,
+        viewController: UIBenchmarkHost
+    ) {
+        let usesAlternateStyle = frame.isMultiple(of: 2)
+        viewController.updateEditorStyle(
+            TextKitEditorStyle(
+                fontSize: usesAlternateStyle ? 16 : 15,
+                lineHeightMultiple: usesAlternateStyle ? 1.3 : 1.25,
+                gutterWidth: usesAlternateStyle ? 44 : 40,
+                contentHorizontalPadding: usesAlternateStyle ? 16 : 14,
+                blockIndentWidth: usesAlternateStyle ? 22 : 20
+            )
+        )
     }
 
     private static func insertText(

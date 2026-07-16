@@ -138,8 +138,10 @@ Public controller mutations are synchronized host operations. `resetDocument` re
 only after the replacement Session snapshot, canvas, native text surface, responder state,
 and snapshot observer are synchronized. `scrollDocument` returns only after the viewport,
 visible snapshot, canvas, and snapshot observer are synchronized, while preserving live
-marked text, native selection, and current responder ownership. Unsynchronized
-`...WithoutRendering` helpers are package-only development hooks.
+marked text, native selection, and current responder ownership. `updateEditorStyle`
+atomically replaces the AppKit text layout/drawing pipeline and synchronizes the resulting
+surface with the same preservation guarantees. Unsynchronized `...WithoutRendering`
+helpers are package-only development hooks.
 
 SwiftPM keeps these responsibilities in separate targets. See `Package.swift` for the
 exact product and target list.

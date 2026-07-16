@@ -63,6 +63,16 @@ private struct DownstreamAppKitHost {
         _ = controller.currentViewport()
 
         controller.renderAndSyncSurface(makeFirstResponder: false)
+        controller.updateEditorStyle(
+            TextKitEditorStyle(
+                fontName: style.fontName,
+                fontSize: style.fontSize + 1,
+                lineHeightMultiple: style.lineHeightMultiple,
+                gutterWidth: style.gutterWidth,
+                contentHorizontalPadding: style.contentHorizontalPadding,
+                blockIndentWidth: style.blockIndentWidth
+            )
+        )
         controller.focus(blockID: blockID, offset: 0)
         controller.replaceActiveText("Updated by the host")
         _ = controller.handleInput(

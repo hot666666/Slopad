@@ -87,6 +87,14 @@ whether the editor or an external view owns first responder. `scrollDocument` re
 the viewport, visible snapshot, canvas, and snapshot observer before returning without
 replacing live marked text, native selection, or responder ownership.
 
+Runtime `TextKitEditorStyle` replacement is also an atomic adapter operation. The adapter
+constructs one immutable layout/render/decoration pipeline from the new style, replaces the
+Session text-layout backend, and publishes only the synchronized final surface. It preserves
+live marked text, native selection, viewport, history, and responder ownership. Every field
+currently carried by `TextKitEditorStyle` affects text geometry, so any style inequality
+requires full text-layout invalidation. Future paint-only values belong in a separate
+appearance contract and must not advance the text-layout revision.
+
 `session`, `scrollView`, raw canvas/native callback methods, native input inspection, and
 no-render batching helpers are not public host contracts. They use package access only
 when debug or benchmark targets require them; otherwise they remain internal or private.
