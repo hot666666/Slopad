@@ -12,6 +12,13 @@ extension EditorSession {
         with textLayouter: any BlockTextLayoutProtocol
     ) -> EditorUpdate {
         self.textLayouter = textLayouter
+        if let blockDrag {
+            self.blockDrag = (
+                blockIDs: blockDrag.blockIDs,
+                dropTarget: nil,
+                dropIndicator: nil
+            )
+        }
         blockLayout.advanceTextLayoutRevision()
         return makeEditorUpdate(
             invalidation: EditorUpdateInvalidation(layoutGeometryChanged: true)

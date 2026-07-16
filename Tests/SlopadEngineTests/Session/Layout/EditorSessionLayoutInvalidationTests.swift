@@ -73,6 +73,55 @@ struct EditorSessionLayoutInvalidationTests {
         )
     }
 
+    @Test("text layout backend 교체는 진행 중인 block drag의 이전 layout drop geometry를 제거한다")
+    func clearsStaleBlockDragGeometry() throws {
+        // Given
+        let a: BlockID = "a"
+        let b: BlockID = "b"
+        let session = EditorSession(
+            document: makeFlatDocument([
+                Block(id: a, content: BlockContent(text: "A")),
+                Block(id: b, content: BlockContent(text: "B")),
+            ]),
+            selection: .blocks(BlockSelection(blockIDs: [a])),
+            textLayouter: DeterministicBlockTextLayouter(lineHeight: 20, verticalPadding: 0)
+        )
+        let viewport = EditorViewport(width: 240, scrollY: 0, height: 200)
+        _ = session.render(in: viewport)
+        _ = try #require(
+            session.handleInput(
+                .pointer(
+                    .beginBlockDrag(
+                        documentPoint: EditorPoint(x: 4, y: 10),
+                        viewport: viewport
+                    )
+                )
+            )
+        )
+        _ = try #require(
+            session.handleInput(
+                .pointer(
+                    .updateBlockDrag(
+                        documentPoint: EditorPoint(x: 4, y: 35),
+                        viewport: viewport
+                    )
+                )
+            )
+        )
+        #expect(session.blockDrag?.dropTarget != nil)
+        #expect(session.blockDrag?.dropIndicator != nil)
+
+        // When
+        _ = session.replaceTextLayoutBackend(
+            with: DeterministicBlockTextLayouter(lineHeight: 40, verticalPadding: 0)
+        )
+
+        // Then
+        #expect(session.blockDrag?.blockIDs == [a])
+        #expect(session.blockDrag?.dropTarget == nil)
+        #expect(session.blockDrag?.dropIndicator == nil)
+    }
+
     @Test("특정 블록 측정 무효화는 세션을 통해 해당 블록만 다시 측정한다")
     func invalidatesSpecificMeasurements() {
         // Given
