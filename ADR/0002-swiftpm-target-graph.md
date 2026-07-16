@@ -18,8 +18,8 @@ The intended dependency graph is:
 SlopadEditorModel ─────────────> SlopadCoreModel
 SlopadBlockLayout ─────────────> SlopadCoreModel + SlopadDataStructure
 SlopadEngine / EditorSession ──> SlopadCoreModel + SlopadEditorModel + SlopadBlockLayout
-SlopadTextKit ─────────────────> SlopadCoreModel
-SlopadAppKitUI ────────────────> SlopadEngine + SlopadTextKit
+SlopadAppKitTextKit ───────────> SlopadCoreModel
+SlopadAppKitUI ────────────────> SlopadEngine + SlopadAppKitTextKit
 ```
 
 ## Decision
@@ -33,7 +33,7 @@ Keep the SwiftPM targets aligned to ownership:
   measurement cache, height index owner.
 - `SlopadDataStructure`: pure data structures with no editor vocabulary.
 - `SlopadEngine`: public `EditorSession` facade and orchestration.
-- `SlopadTextKit`: Apple TextKit2 text layout/rendering backend.
+- `SlopadAppKitTextKit`: AppKit/TextKit2 text layout/rendering backend.
 - `SlopadAppKitUI`: reusable AppKit view/controller adapter.
 - `SlopadDebugApp`: AppKit reference/debug host.
 - `SlopadUIBenchmarkApp`: AppKit UI benchmark harness.
@@ -47,7 +47,7 @@ host-facing session contracts, public vocabulary, and backend seam values.
 - `SlopadBlockLayout` must not import `SlopadEditorModel`.
 - `SlopadEngine` may compose both owners and translate between semantic change facts and
   layout invalidation facts.
-- `SlopadTextKit` implements the CoreModel backend seam and must not depend on
+- `SlopadAppKitTextKit` implements the CoreModel backend seam and must not depend on
   `SlopadEngine`; adapting Session render descriptors to TextKit calls belongs to
   `SlopadAppKitUI`.
 - `SlopadCoreModel` is not a shared helper bucket. A value belongs there only when it is

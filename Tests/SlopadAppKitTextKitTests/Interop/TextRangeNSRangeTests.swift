@@ -1,8 +1,8 @@
 import Foundation
 import Testing
 
+@testable import SlopadAppKitTextKit
 @testable import SlopadCoreModel
-@testable import SlopadTextKit
 
 @Suite("TextRange와 NSRange 변환")
 struct TextRangeNSRangeTests {

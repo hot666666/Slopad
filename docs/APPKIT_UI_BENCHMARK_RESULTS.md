@@ -28,7 +28,7 @@ flowchart LR
     RenderSync["renderAndSyncSurface<br/>avgRenderAndSyncMs"]
     Render["EditorSession.render"]
     Layout["BlockLayout<br/>height index + visible range"]
-    TextLayout["SlopadTextKit<br/>text layout/cache"]
+    TextLayout["SlopadAppKitTextKit<br/>text layout/cache"]
     Snapshot["EditorSessionSnapshot<br/>visible blocks + geometry"]
     Surface["canvas resize<br/>active input sync<br/>setNeedsDisplay"]
     Display["displayIfNeeded<br/>avgDisplayMs"]

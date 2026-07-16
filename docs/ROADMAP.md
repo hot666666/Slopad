@@ -9,7 +9,7 @@ This document keeps only the current development direction for the Slopad projec
   `SlopadBlockLayout`; those two targets do not import each other.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical
   document values.
-- `SlopadTextKit` provides the TextKit2-based measurement, line fragment,
+- `SlopadAppKitTextKit` provides the AppKit/TextKit2-based measurement, line fragment,
   caret/selection rect, hit-test, and drawing backend.
 - The default `BlockHeightIndexStorage` implementation is RBTree-backed. Array storage is
   not the default for structural-mutation-heavy paths.

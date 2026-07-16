@@ -22,7 +22,7 @@ Keep the public text layout seam in `SlopadCoreModel/Layout` as
 `BlockTextLayoutProtocol` and related value types. Keep block-local request construction
 and cache policy inside `SlopadBlockLayout/TextLayout`.
 
-`SlopadTextKit` is the current Apple TextKit2 adapter. It implements the seam and can be
+`SlopadAppKitTextKit` is the current AppKit/TextKit2 adapter. It implements the seam and can be
 used by AppKit hosts or the demo app, but TextKit2 types do not belong in
 `SlopadEngine`, `SlopadEditorModel`, or `SlopadBlockLayout`.
 

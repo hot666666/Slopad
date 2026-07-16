@@ -84,7 +84,7 @@ flowchart LR
     subgraph PlatformLayer["Platform Layer"]
         direction TB
         AppKitUI["SlopadAppKitUI<br/>(AppKit adapter)"]
-        TextKit["SlopadTextKit<br/>(TextKit2 backend)"]
+        TextKit["SlopadAppKitTextKit<br/>(AppKit + TextKit2 backend)"]
 
         AppKitUI --> TextKit
     end
@@ -98,7 +98,7 @@ flowchart LR
 | Layer             | Owner                 | Responsibility                                                                                                                                                        |
 | ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Platform Layer    | `SlopadAppKitUI`      | Reusable AppKit callback, drawing, focus, scroll, and block chrome adapter around `EditorSession`.                                                                    |
-| Platform Layer    | `SlopadTextKit`       | TextKit2 implementation of the text layout seam: measurement, line fragments, caret/selection rects, hit testing, and drawing helpers.                                |
+| Platform Layer    | `SlopadAppKitTextKit` | AppKit/TextKit2 implementation of the text layout seam: measurement, line fragments, caret/selection rects, hit testing, and drawing helpers.                         |
 | Engine Layer      | `SlopadEngine`        | Host-facing `EditorSession` facade. It accepts native-independent input, composes semantic and layout owners, and returns render, hit-test, reveal, and redraw facts. |
 | Engine Layer      | `SlopadEditorModel`   | Canonical document, selection, command, transaction, history, and semantic change owner.                                                                              |
 | Engine Layer      | `SlopadBlockLayout`   | Visible order, y/height geometry, invalidation, reveal/hit-test geometry, marker projection, text-layout cache, and block height index owner.                         |
@@ -142,6 +142,7 @@ Debug target:
 ```sh
 swift package dump-package
 swift test --quiet
+swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet
 swift build --product SlopadUIBenchmarkApp --quiet

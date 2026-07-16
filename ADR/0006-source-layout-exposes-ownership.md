@@ -55,7 +55,7 @@ Target-specific placement:
     selection, composition, interaction, geometry, and layout.
 - `Sources/SlopadDataStructure`
   - Pure data structures only. No editor, block, layout, or platform vocabulary.
-- `Sources/SlopadTextKit`
+- `Sources/SlopadAppKitTextKit`
   - TextKit2 backend implementation and interop only.
 
 ## Consequences

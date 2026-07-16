@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
+import SlopadAppKitTextKit
 import SlopadEngine
-import SlopadTextKit
 
 // MARK: - AppKitBlockRenderer
 

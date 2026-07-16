@@ -1,7 +1,7 @@
 import Testing
 
+@testable import SlopadAppKitTextKit
 @testable import SlopadCoreModel
-@testable import SlopadTextKit
 
 @Suite("TextKit 블록 텍스트 레이아웃")
 struct TextKitBlockTextLayouterTests {

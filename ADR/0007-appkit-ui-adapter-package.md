@@ -30,7 +30,7 @@ The package owns reusable AppKit adapter code:
 - TextKit-backed canvas drawing
 - block-kind chrome customization through a renderer interface
 
-It depends on `SlopadEngine` and `SlopadTextKit`. It does not expose `EditorModel`,
+It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `EditorModel`,
 `BlockLayout`, canonical `Document`, layout cache, or height-index storage.
 
 ## Consequences

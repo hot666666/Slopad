@@ -67,7 +67,7 @@ sources of truth.
 - `BlockHeightIndexStorage`: owner of block height/y prefix-sum storage. The default
   implementation uses `PrefixSumRedBlackTree`.
 - `SlopadDataStructure`: pure data structures with no editor concepts.
-- `SlopadTextKit`: Apple TextKit2-based block text layout/rendering backend. It does not
+- `SlopadAppKitTextKit`: AppKit/TextKit2-based block text layout/rendering backend. It does not
   own native view/input host types or canonical editor state.
 - `SlopadAppKitUI`: reusable macOS AppKit adapter. It provides AppKit key/pointer/IME
   callbacks, scroll/focus sync, TextKit drawing, and a block-kind chrome interface, but
@@ -186,6 +186,7 @@ Default verification after code changes:
 
 ```sh
 swift test --quiet
+swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet
 swift build --product SlopadUIBenchmarkApp --quiet

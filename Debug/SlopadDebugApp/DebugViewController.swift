@@ -1,8 +1,8 @@
 import AppKit
 import Foundation
+import SlopadAppKitTextKit
 import SlopadAppKitUI
 import SlopadEngine
-import SlopadTextKit
 
 @MainActor
 final class DebugViewController: NSViewController {
