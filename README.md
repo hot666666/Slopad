@@ -119,6 +119,13 @@ adapter around `EditorSession`. That adapter must keep layout, drawing, hit test
 caret/selection geometry, and native text geometry coherent. The high-level chrome hook
 is not a partial text-renderer replacement point.
 
+Public controller mutations are synchronized host operations. `resetDocument` returns
+only after the replacement Session snapshot, canvas, native text surface, responder state,
+and snapshot observer are synchronized. `scrollDocument` returns only after the viewport,
+visible snapshot, canvas, and snapshot observer are synchronized, while preserving live
+marked text, native selection, and current responder ownership. Unsynchronized
+`...WithoutRendering` helpers are package-only development hooks.
+
 SwiftPM keeps these responsibilities in separate targets. See `Package.swift` for the
 exact product and target list.
 
@@ -150,6 +157,9 @@ Debug target:
 
 ## Development Checks
 
+`Fixtures/DownstreamAppKitHost` is a compile-only consumer of the intended public host
+surface. It must not rely on `@testable` imports or package-only APIs.
+
 ```sh
 swift package dump-package
 swift test --quiet
@@ -157,5 +167,6 @@ swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet
 swift build --product SlopadUIBenchmarkApp --quiet
+swift build --package-path Fixtures/DownstreamAppKitHost --product DownstreamAppKitHost --quiet
 git diff --check
 ```

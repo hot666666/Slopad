@@ -44,6 +44,16 @@ adapter around `EditorSession` and use a coherent backend that keeps layout, dra
 testing, caret/selection geometry, and native text geometry consistent. It is not exposed
 as another high-level paint hook in `SlopadAppKitUI`.
 
+Public document and viewport mutations are atomic adapter operations. `resetDocument`
+renders and synchronizes the replacement Session before returning while preserving
+whether the editor or an external view owns first responder. `scrollDocument` refreshes
+the viewport, visible snapshot, canvas, and snapshot observer before returning without
+replacing live marked text, native selection, or responder ownership.
+
+`session`, `scrollView`, raw canvas/native callback methods, native input inspection, and
+no-render batching helpers are not public host contracts. They use package access only
+when debug or benchmark targets require them; otherwise they remain internal or private.
+
 It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `EditorModel`,
 `BlockLayout`, canonical `Document`, layout cache, or height-index storage.
 
@@ -53,8 +63,11 @@ It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `Edit
 - Debug-only scenario/HUD state stays in `SlopadDebugApp`.
 - Benchmark-only frame loops, CSV output, and forced display flushes stay in
   `SlopadUIBenchmarkApp`.
-- AppKit UI customization happens through adapter-level renderer and controller hooks,
-  not by moving editor semantics out of `EditorSession`.
+- AppKit UI customization happens through `AppKitBlockChromeRenderer`, theme values, and
+  explicit public controller actions, not by moving editor semantics or text-pipeline
+  ownership out of `EditorSession` and the adapter.
+- `Fixtures/DownstreamAppKitHost` compile-checks the intended host contract using ordinary
+  public imports only.
 - `AppKitBlockRenderer`, `AppKitBlockRenderContext`, and `drawBlock(_:)` are replaced by
   the chrome-specific names. This is intentionally source breaking: retaining the old
   whole-block hook would keep a path that can suppress native text/input feedback or draw

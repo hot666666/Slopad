@@ -151,6 +151,11 @@ used by `Session` when it builds `BlockLayout` requests.
 - Separate ownership before fixing UI bugs: AppKit callback/drawing glue belongs to
   `SlopadAppKitUI`; semantic editing, selection, composition, hit-test, reveal, and layout
   orchestration belong behind `EditorSession`.
+- Treat public AppKit host actions as synchronized adapter boundaries. `resetDocument`
+  and `scrollDocument` must return with the relevant Session snapshot, canvas, viewport,
+  native input, focus, and observer state consistent. Programmatic scrolling must preserve
+  live marked text and responder ownership. Package-only no-render hooks are reserved for
+  development targets that explicitly perform the later render/sync step.
 
 ## Working Principles
 
@@ -165,6 +170,9 @@ used by `Session` when it builds `BlockLayout` requests.
 - Access control means `public` for host surface, `package` for real cross-target owner
   interfaces, and omitted access for target-internal defaults. Do not open a whole owner
   helper through `package extension`.
+- After changing the AppKit public/package boundary, build
+  `Fixtures/DownstreamAppKitHost` without weakening it through `@testable` or package
+  access.
 - Prefer existing local patterns and helper APIs.
 - Keep source/test filenames responsibility-revealing.
 - Do not revert user changes.
@@ -194,6 +202,7 @@ swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet
 swift build --product SlopadUIBenchmarkApp --quiet
+swift build --package-path Fixtures/DownstreamAppKitHost --product DownstreamAppKitHost --quiet
 git diff --check
 ```
 

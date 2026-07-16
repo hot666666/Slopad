@@ -23,6 +23,12 @@ This document keeps only the current development direction for the Slopad projec
   can draw backgrounds, borders, gutters, and markers, while the adapter always owns
   TextKit2 fragment-based text drawing plus text-selection, caret, and live marked-content
   feedback after clipped and isolated host chrome passes.
+- Public AppKit `resetDocument` and `scrollDocument` actions are synchronized boundaries.
+  Reset updates the replacement document and native surface before returning; scroll
+  updates viewport, visible snapshot, canvas, and observers without discarding live
+  marked text or stealing focus. Unsynchronized batching helpers remain package-only.
+- `Fixtures/DownstreamAppKitHost` compile-checks the intended downstream API using regular
+  public imports only.
 - The AppKit path already routes native command selectors, IME/marked text, plain-text
   copy/cut/paste, undo/redo, scroll reveal, text selection, block selection, block
   selection rectangles, and selected-block drag/reorder through `EditorSession`.
@@ -68,6 +74,8 @@ Priority order:
     the chrome-only renderer boundary while these policies are added.
   - Keep platform code limited to native callbacks, drawing, focus, scroll, and adapter
     policy. Semantic editing behavior stays behind `EditorSession`.
+  - Contract regression gate: the downstream fixture continues to build without
+    `@testable`, package-only controller state, raw callbacks, or development hooks.
   - Completion signal: downstream hosts can customize the adapter without reaching into
     `EditorModel`, `BlockLayout`, layout cache, or canonical `Document`.
 
