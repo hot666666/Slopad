@@ -201,11 +201,11 @@ final class DebugViewController: NSViewController {
     func resetDocument(blocks: [EditorBlockInput], selection: EditorSelection) {
         previousSnapshot = nil
         debugHUDRevisionComparison = nil
-        editorViewController.resetDocument(blocks: blocks, selection: selection)
+        editorViewController.resetDocumentWithoutRendering(blocks: blocks, selection: selection)
     }
 
     func scrollDocument(to y: Double) {
-        editorViewController.scrollDocument(to: y)
+        editorViewController.scrollDocumentWithoutRendering(to: y)
     }
 
     // MARK: - Setup

@@ -257,11 +257,11 @@ final class UIBenchmarkHost {
     }
 
     func resetDocument(blocks: [EditorBlockInput], selection: EditorSelection) {
-        editorViewController.resetDocument(blocks: blocks, selection: selection)
+        editorViewController.resetDocumentWithoutRendering(blocks: blocks, selection: selection)
     }
 
     func scrollDocument(to y: Double) {
-        editorViewController.scrollDocument(to: y)
+        editorViewController.scrollDocumentWithoutRendering(to: y)
     }
 
     fileprivate func resetUIBenchmarkDocument(

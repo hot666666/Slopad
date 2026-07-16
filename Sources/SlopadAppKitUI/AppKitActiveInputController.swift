@@ -75,6 +75,10 @@ final class AppKitActiveInputController {
         text
     }
 
+    var activeBlockID: BlockID? {
+        activeTextHostBlockID
+    }
+
     var activeSelectedRange: NSRange {
         selectedRange
     }
