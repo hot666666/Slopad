@@ -27,18 +27,19 @@ flowchart LR
     Operation["EditorSession.handleInput<br/>avgOperationMs"]
     RenderSync["renderAndSyncSurface<br/>avgRenderAndSyncMs"]
     Render["EditorSession.render"]
-    Layout["BlockLayout<br/>height index + visible range"]
-    TextLayout["SlopadAppKitTextKit<br/>text layout/cache"]
+    Layout["BlockLayout<br/>height index + visible range<br/>TextLayout cache"]
+    TextBackend["SlopadAppKitTextKit<br/>TextKit2 fragment layout + geometry"]
     Snapshot["EditorSessionSnapshot<br/>visible blocks + geometry"]
     Surface["canvas resize<br/>active input sync<br/>setNeedsDisplay"]
     Display["displayIfNeeded<br/>avgDisplayMs"]
     Draw["draw(_:)<br/>avgDrawMs"]
     Chrome["host block chrome hook"]
-    TextDraw["adapter-owned<br/>TextKit2 fragment-based text drawing"]
+    TextDraw["adapter-owned<br/>TextKit2 fragment drawing<br/>effective live composition included"]
     Decoration["adapter-owned<br/>text selection + caret"]
 
     Scenario --> Operation --> RenderSync
-    RenderSync --> Render --> Layout --> TextLayout --> Snapshot --> Surface
+    RenderSync --> Render --> Layout --> Snapshot --> Surface
+    Layout -->|"BlockTextLayoutProtocol"| TextBackend
     Surface --> Display --> Draw --> Chrome --> TextDraw --> Decoration
 ```
 

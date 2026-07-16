@@ -12,15 +12,40 @@ The source tree used to carry broad internal coupling because editor semantics, 
 projection, public vocabulary, data structures, TextKit implementation, and demo code
 were not enforced by the compiler as separate modules.
 
-The intended dependency graph is:
+The production dependency graph is:
 
-```text
-SlopadEditorModel ─────────────> SlopadCoreModel
-SlopadBlockLayout ─────────────> SlopadCoreModel + SlopadDataStructure
-SlopadEngine / EditorSession ──> SlopadCoreModel + SlopadEditorModel + SlopadBlockLayout
-SlopadAppKitTextKit ───────────> SlopadCoreModel
-SlopadAppKitUI ────────────────> SlopadEngine + SlopadAppKitTextKit
+```mermaid
+flowchart TB
+    subgraph Platform["Platform Layer - macOS"]
+        AppKitUI["SlopadAppKitUI"]
+        AppKitTextKit["SlopadAppKitTextKit"]
+    end
+
+    subgraph Headless["Headless Engine"]
+        Engine["SlopadEngine / EditorSession"]
+        EditorModel["SlopadEditorModel"]
+        BlockLayout["SlopadBlockLayout"]
+    end
+
+    subgraph Foundation["Foundation & Data"]
+        CoreModel["SlopadCoreModel"]
+        DataStructure["SlopadDataStructure"]
+    end
+
+    AppKitUI --> Engine
+    AppKitUI --> AppKitTextKit
+    Engine --> CoreModel
+    Engine --> EditorModel
+    Engine --> BlockLayout
+    EditorModel --> CoreModel
+    BlockLayout --> CoreModel
+    BlockLayout --> DataStructure
+    AppKitTextKit --> CoreModel
 ```
+
+Arrows show direct SwiftPM target dependencies. Debug apps, benchmarks, tests, and the
+downstream fixture consume this graph from its outer edge; they do not define production
+ownership.
 
 ## Decision
 
@@ -39,7 +64,8 @@ Keep the SwiftPM targets aligned to ownership:
 - `SlopadUIBenchmarkApp`: AppKit UI benchmark harness.
 
 Use Swift `package` access for cross-target internal interfaces. Use `public` only for
-host-facing session contracts, public vocabulary, and backend seam values.
+host-facing Session contracts, public vocabulary, backend seam values, and intentional
+platform host surfaces such as the AppKit controller, style, and chrome contract.
 
 ## Consequences
 
@@ -50,6 +76,9 @@ host-facing session contracts, public vocabulary, and backend seam values.
 - `SlopadAppKitTextKit` implements the CoreModel backend seam and must not depend on
   `SlopadEngine`; adapting Session render descriptors to TextKit calls belongs to
   `SlopadAppKitUI`.
+- A complete platform replacement adds a sibling adapter that depends on `SlopadEngine`
+  and a coherent backend. It does not add platform dependencies to the engine or turn the
+  default AppKit chrome hook into a renderer seam.
 - `SlopadCoreModel` is not a shared helper bucket. A value belongs there only when it is
   public vocabulary, a backend seam value, or package canonical document state.
 - Any new public/package surface needs producer, consumer, invariant, and dependency

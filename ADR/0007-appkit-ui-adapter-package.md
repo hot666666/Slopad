@@ -30,19 +30,56 @@ The package owns reusable AppKit adapter code:
 - TextKit-backed canvas drawing
 - block-kind chrome customization through `AppKitBlockChromeRenderer`
 
-The block appearance extension point is chrome-only. A host renderer receives block
+The block appearance extension point is chrome-only. A host chrome renderer receives block
 identity, kind, marker, depth, frame, style, graphics context, and active/selected state.
-Its initializer is internal because only the adapter can assemble a valid context. It does
-not receive the Session snapshot, concrete text layouter/renderer, text render descriptor,
-or dirty rectangle. `SlopadAppKitUI` clips the hook to its block frame, saves and restores
-graphics state, then performs all chrome passes before its TextKit2 fragment-based text
-drawing, text selection, and caret feedback. Live marked text is projected into the
-effective content used by that same adapter-owned text drawing path.
+The render context initializer is internal because only the adapter can assemble a valid
+context. It does not receive the Session snapshot, concrete text layouter/renderer, text
+render descriptor, or dirty rectangle. `SlopadAppKitUI` clips the hook to its block frame,
+saves and restores graphics state, then performs all chrome passes before its TextKit2
+fragment-based text drawing, text selection, and caret feedback. Live marked text is
+projected into the effective content used by that same adapter-owned text drawing path.
 
 Replacing the complete native text pipeline requires a host to build a custom platform
 adapter around `EditorSession` and use a coherent backend that keeps layout, drawing, hit
 testing, caret/selection geometry, and native text geometry consistent. It is not exposed
 as another high-level paint hook in `SlopadAppKitUI`.
+
+```mermaid
+flowchart TB
+    Host{"Host integration choice"}
+    Session["EditorSession<br/>headless semantic boundary"]
+    Seam["BlockTextLayoutProtocol<br/>coherent text-layout seam"]
+
+    subgraph Default["Default AppKit Path"]
+        AppKitUI["SlopadAppKitUI<br/>native text pipeline integration"]
+        Chrome["AppKitBlockChromeRenderer + theme<br/>background · border · gutter · marker"]
+        FragmentPass["Adapter-owned TextKit2 fragment pass<br/>effective live composition included"]
+        FeedbackPass["Adapter-owned selection · caret feedback"]
+        AppKitTextKit["SlopadAppKitTextKit"]
+
+        Chrome -.->|"clipped and isolated"| AppKitUI
+        AppKitUI -->|"always follows chrome"| FragmentPass
+        FragmentPass --> FeedbackPass
+        AppKitUI --> AppKitTextKit
+        AppKitTextKit -->|"provides backend work"| FragmentPass
+        AppKitTextKit -->|"provides geometry"| FeedbackPass
+    end
+
+    subgraph Replacement["Complete Pipeline Replacement"]
+        CustomAdapter["Separate platform adapter<br/>callbacks · drawing · focus/scroll sync"]
+        CustomBackend["Coherent backend<br/>layout · hit test · drawing<br/>caret/selection · native text geometry"]
+    end
+
+    Host -->|"standard integration"| AppKitUI
+    Host -->|"chrome/theme customization"| Chrome
+    AppKitUI --> Session
+    AppKitTextKit -.->|"implements"| Seam
+
+    Host -->|"complete replacement"| CustomAdapter
+    CustomAdapter --> Session
+    CustomAdapter --> CustomBackend
+    CustomBackend -.->|"implements"| Seam
+```
 
 Public document and viewport mutations are atomic adapter operations. `resetDocument`
 renders and synchronizes the replacement Session before returning while preserving
@@ -63,9 +100,12 @@ It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `Edit
 - Debug-only scenario/HUD state stays in `SlopadDebugApp`.
 - Benchmark-only frame loops, CSV output, and forced display flushes stay in
   `SlopadUIBenchmarkApp`.
-- AppKit UI customization happens through `AppKitBlockChromeRenderer`, theme values, and
-  explicit public controller actions, not by moving editor semantics or text-pipeline
-  ownership out of `EditorSession` and the adapter.
+- AppKit visual customization happens through `AppKitBlockChromeRenderer` and theme
+  values, not by moving editor semantics or text-pipeline ownership out of
+  `EditorSession` and the adapter.
+- Hosts drive the default adapter through synchronized public controller actions and
+  observers. Those operations are not extension points for raw key, IME, pointer, reveal,
+  or paint policy.
 - `Fixtures/DownstreamAppKitHost` compile-checks the intended host contract using ordinary
   public imports only.
 - `AppKitBlockRenderer`, `AppKitBlockRenderContext`, and `drawBlock(_:)` are replaced by

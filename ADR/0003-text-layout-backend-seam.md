@@ -22,9 +22,17 @@ Keep the public text layout seam in `SlopadCoreModel/Layout` as
 `BlockTextLayoutProtocol` and related value types. Keep block-local request construction
 and cache policy inside `SlopadBlockLayout/TextLayout`.
 
-`SlopadAppKitTextKit` is the current AppKit/TextKit2 adapter. It implements the seam and can be
-used by AppKit hosts or the demo app, but TextKit2 types do not belong in
-`SlopadEngine`, `SlopadEditorModel`, or `SlopadBlockLayout`.
+`SlopadAppKitTextKit` is the current AppKit/TextKit2 backend. It implements the seam and
+provides fragment layout, geometry, attributed-content, and drawing helpers to the
+default `SlopadAppKitUI` adapter. TextKit2 types do not belong in `SlopadEngine`,
+`SlopadEditorModel`, or `SlopadBlockLayout`.
+
+The seam anchors a coherent geometry contract, not a height-only service or high-level
+paint hook. `EditorSession` owns the live composition overlay and supplies it to
+`BlockLayout`'s effective content projection. BlockLayout measurement, Session geometry
+queries, and adapter drawing helpers then consume the same effective request. A complete
+alternative pipeline therefore pairs a coherent backend with its own platform adapter
+around `EditorSession`.
 
 ## Consequences
 
@@ -36,3 +44,4 @@ used by AppKit hosts or the demo app, but TextKit2 types do not belong in
   adapter, so the TextKit backend does not depend on `SlopadEngine`.
 - Native views draw from session render descriptors and backend layout results; they do
   not own editor selection/composition semantics.
+- The default AppKit chrome/theme hook cannot replace backend text layout or drawing.

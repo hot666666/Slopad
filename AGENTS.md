@@ -34,6 +34,8 @@ Markdown is only import/export format or input shortcut syntax.
 ## Document Index
 
 - `README.md`: architecture map, package products, and AppKit UI package usage.
+- `docs/ARCHITECTURE.md`: detailed target graph, runtime ownership flow, platform
+  extension boundary, and architecture philosophy.
 - `ADR/`: durable architecture decision records.
 - `docs/ROADMAP.md`: completed milestones, next product/performance direction, and open
   risks.
@@ -110,6 +112,12 @@ used by `Session` when it builds `BlockLayout` requests.
 - `TextLayout` does not mean height measurement only. It includes line fragments,
   caret/selection rects, and text hit-testing, so keep the `textLayouter` name and do not
   shrink it to `textMeasurer`.
+- A text backend is a coherent geometry contract, not an interchangeable paint callback.
+  `EditorSession` supplies live composition to `BlockLayout`'s effective content
+  projection; measurement, line fragments, hit testing, caret/selection geometry, and
+  drawing must then consume the same effective request. `AppKitBlockChromeRenderer` is
+  decoration only; complete native text pipeline replacement requires a separate adapter
+  and coherent backend.
 - An owner is the layer with final authority over the invariant and mutation rule for a
   meaning. A projection is a derived read/display/calculation result from canonical state
   and does not replace canonical state.
@@ -161,12 +169,13 @@ used by `Session` when it builds `BlockLayout` requests.
 
 - Run `git status --short` before making changes so user-owned uncommitted work is
   visible.
-- Before structure/engine/UI package changes, read `README.md`, relevant ADRs,
-  `docs/ROADMAP.md`, and this file's terminology/decision criteria, then summarize the
-  responsibility boundary.
+- Before structure/engine/UI package changes, read `README.md`, `docs/ARCHITECTURE.md`,
+  relevant ADRs, `docs/ROADMAP.md`, and this file's terminology/decision criteria, then
+  summarize the responsibility boundary.
 - Judge from repository files and current source, not memory or prior conversation.
 - Decide which layer owns the change before editing.
-- Reflect layer-boundary changes only in durable sources: README, AGENTS, ADR, or ROADMAP.
+- Reflect layer-boundary changes only in durable sources: README,
+  `docs/ARCHITECTURE.md`, AGENTS, ADR, or ROADMAP.
 - Access control means `public` for host surface, `package` for real cross-target owner
   interfaces, and omitted access for target-internal defaults. Do not open a whole owner
   helper through `package extension`.
