@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 import Foundation
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextKitBlockTextLayouter
 
@@ -45,13 +45,6 @@ public struct TextKitBlockTextLayouter: BlockTextLayoutProtocol, Sendable {
         )
     }
 
-    public func textFrame(
-        for descriptor: EditorTextRenderDescriptor,
-        measuredHeight: Double? = nil
-    ) -> EditorRect {
-        textFrame(for: descriptor.measureRequest, measuredHeight: measuredHeight)
-    }
-
     public func lineFragments(for request: BlockMeasureRequest) -> [LineFragmentSnapshot] {
         layoutContext.lineFragments(for: request, style: style)
     }
@@ -67,25 +60,14 @@ public struct TextKitBlockTextLayouter: BlockTextLayoutProtocol, Sendable {
         ).map(EditorRect.init(cgRect:))
     }
 
-    public func caretRect(
-        for position: TextPosition,
-        in descriptor: EditorTextRenderDescriptor
-    ) -> EditorRect? {
-        caretRect(for: position, in: descriptor.measureRequest)
-    }
-
-    public func selectionRects(for range: SlopadEngine.TextRange, in request: BlockMeasureRequest)
+    public func selectionRects(
+        for range: SlopadCoreModel.TextRange,
+        in request: BlockMeasureRequest
+    )
         -> [EditorRect]
     {
         layoutContext.selectionRects(for: range, request: request, style: style)
             .map(EditorRect.init(cgRect:))
-    }
-
-    public func selectionRects(
-        for range: SlopadEngine.TextRange,
-        in descriptor: EditorTextRenderDescriptor
-    ) -> [EditorRect] {
-        selectionRects(for: range, in: descriptor.measureRequest)
     }
 
     public func textPosition(at point: EditorPoint, in request: BlockMeasureRequest) -> TextPosition

@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextKitLayoutContext
 
@@ -90,7 +90,7 @@ final class TextKitLayoutContext: @unchecked Sendable {
                 let textRange =
                     line.characterRange.slopadTextRange(in: layoutString)?
                     .clamped(to: request.text.count)
-                    ?? SlopadEngine.TextRange.point(0)
+                    ?? SlopadCoreModel.TextRange.point(0)
                 fragments.append(
                     LineFragmentSnapshot(
                         blockID: request.blockID,
@@ -123,7 +123,7 @@ final class TextKitLayoutContext: @unchecked Sendable {
     }
 
     func selectionRects(
-        for range: SlopadEngine.TextRange,
+        for range: SlopadCoreModel.TextRange,
         request: BlockMeasureRequest,
         style: TextKitEditorStyle
     ) -> [CGRect] {
@@ -199,9 +199,9 @@ final class TextKitLayoutContext: @unchecked Sendable {
         request: BlockMeasureRequest,
         style: TextKitEditorStyle
     ) -> CGRect? {
-        let clamped = SlopadEngine.TextRange.point(offset).clamped(to: request.text.count)
+        let clamped = SlopadCoreModel.TextRange.point(offset).clamped(to: request.text.count)
             .lowerBound
-        let nsOffset = SlopadEngine.TextRange.point(clamped)
+        let nsOffset = SlopadCoreModel.TextRange.point(clamped)
             .textKitNSRange(in: request.text)
             .location
         guard
@@ -230,7 +230,7 @@ final class TextKitLayoutContext: @unchecked Sendable {
     }
 
     private func nsTextRange(
-        for range: SlopadEngine.TextRange,
+        for range: SlopadCoreModel.TextRange,
         in text: String
     ) -> NSTextRange? {
         let nsRange = range.textKitNSRange(in: text)

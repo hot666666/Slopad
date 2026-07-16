@@ -1,5 +1,5 @@
 import CoreGraphics
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - EditorRect CGRect
 

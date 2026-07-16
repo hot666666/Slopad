@@ -57,10 +57,7 @@ let package = Package(
         ),
         .target(
             name: "SlopadTextKit",
-            dependencies: [
-                "SlopadCoreModel",
-                "SlopadEngine",
-            ]
+            dependencies: ["SlopadCoreModel"]
         ),
         .target(
             name: "SlopadAppKitUI",
@@ -114,7 +111,6 @@ let package = Package(
             name: "SlopadTextKitTests",
             dependencies: [
                 "SlopadCoreModel",
-                "SlopadEngine",
                 "SlopadTextKit"
             ]
         )

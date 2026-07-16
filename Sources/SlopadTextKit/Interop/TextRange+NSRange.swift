@@ -1,9 +1,9 @@
 import Foundation
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextRange NSRange
 
-extension SlopadEngine.TextRange {
+extension SlopadCoreModel.TextRange {
     public func textKitNSRange(in text: String) -> NSRange {
         let clamped = clamped(to: text.count)
         let lower = text.textKitIndexAtGraphemeOffset(clamped.lowerBound)
@@ -23,7 +23,7 @@ extension SlopadEngine.TextRange {
 // MARK: - NSRange TextRange
 
 extension NSRange {
-    public func slopadTextRange(in text: String) -> SlopadEngine.TextRange? {
+    public func slopadTextRange(in text: String) -> SlopadCoreModel.TextRange? {
         guard
             let lowerUTF16 = text.utf16.index(
                 text.utf16.startIndex,
@@ -42,7 +42,7 @@ extension NSRange {
         }
         let lowerOffset = text.distance(from: text.startIndex, to: lower)
         let upperOffset = text.distance(from: text.startIndex, to: upper)
-        return SlopadEngine.TextRange(lowerOffset, upperOffset)
+        return SlopadCoreModel.TextRange(lowerOffset, upperOffset)
     }
 }
 

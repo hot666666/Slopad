@@ -1,5 +1,5 @@
 import CoreGraphics
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextKitBlockRenderer
 
@@ -19,14 +19,6 @@ public struct TextKitBlockRenderer: Sendable {
             style: style,
             context: context
         )
-    }
-
-    public func draw(
-        _ descriptor: EditorTextRenderDescriptor,
-        context: CGContext
-    ) {
-        let frame = CGRect(editorRect: descriptor.frame)
-        draw(descriptor.measureRequest, in: frame, context: context)
     }
 
     // MARK: - Internal State

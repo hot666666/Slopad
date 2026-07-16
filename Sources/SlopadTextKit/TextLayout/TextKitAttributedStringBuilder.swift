@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextKitAttributedStringBuilder
 

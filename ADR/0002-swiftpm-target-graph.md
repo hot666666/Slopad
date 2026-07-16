@@ -12,18 +12,14 @@ The source tree used to carry broad internal coupling because editor semantics, 
 projection, public vocabulary, data structures, TextKit implementation, and demo code
 were not enforced by the compiler as separate modules.
 
-The intended architecture is:
+The intended dependency graph is:
 
 ```text
-SlopadCoreModel
-├─ public host/backend vocabulary
-└─ package canonical Document/Block values
-   ↑                    ↑
-SlopadEditorModel    SlopadBlockLayout ──> SlopadDataStructure
-   ↑                    ↑
-   └────── SlopadEngine / Session ──────┘
-                 ↑
-           SlopadTextKit
+SlopadEditorModel ─────────────> SlopadCoreModel
+SlopadBlockLayout ─────────────> SlopadCoreModel + SlopadDataStructure
+SlopadEngine / EditorSession ──> SlopadCoreModel + SlopadEditorModel + SlopadBlockLayout
+SlopadTextKit ─────────────────> SlopadCoreModel
+SlopadAppKitUI ────────────────> SlopadEngine + SlopadTextKit
 ```
 
 ## Decision
@@ -51,6 +47,9 @@ host-facing session contracts, public vocabulary, and backend seam values.
 - `SlopadBlockLayout` must not import `SlopadEditorModel`.
 - `SlopadEngine` may compose both owners and translate between semantic change facts and
   layout invalidation facts.
+- `SlopadTextKit` implements the CoreModel backend seam and must not depend on
+  `SlopadEngine`; adapting Session render descriptors to TextKit calls belongs to
+  `SlopadAppKitUI`.
 - `SlopadCoreModel` is not a shared helper bucket. A value belongs there only when it is
   public vocabulary, a backend seam value, or package canonical document state.
 - Any new public/package surface needs producer, consumer, invariant, and dependency

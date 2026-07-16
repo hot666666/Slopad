@@ -32,5 +32,7 @@ used by AppKit hosts or the demo app, but TextKit2 types do not belong in
 - A future UIKit or non-Apple backend should implement the same layout protocol instead
   of changing engine semantics.
 - Layout cache invalidation belongs to `SlopadBlockLayout`, not the platform backend.
+- Adapting `EditorTextRenderDescriptor` to backend requests belongs to the platform UI
+  adapter, so the TextKit backend does not depend on `SlopadEngine`.
 - Native views draw from session render descriptors and backend layout results; they do
   not own editor selection/composition semantics.

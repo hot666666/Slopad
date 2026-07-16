@@ -1,4 +1,4 @@
-import SlopadEngine
+import SlopadCoreModel
 
 // MARK: - TextKitBlockChromeMetrics
 
