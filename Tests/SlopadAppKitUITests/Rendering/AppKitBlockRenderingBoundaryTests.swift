@@ -18,22 +18,22 @@ struct AppKitBlockRenderingBoundaryTests {
                 content: BlockContent(text: "Block \(index)")
             )
         }
-        let activeRenderer = RecordingBlockRenderer()
+        let activeRenderer = RecordingBlockChromeRenderer()
         let activeController = makeController(
             blocks: blocks,
             selection: .caret(blockID: blockIDs[0], offset: 0),
-            renderer: activeRenderer
+            chromeRenderer: activeRenderer
         )
-        let selectedRenderer = RecordingBlockRenderer()
+        let selectedRenderer = RecordingBlockChromeRenderer()
         let selectedController = makeController(
             blocks: blocks,
             selection: .blocks(BlockSelection(blockIDs: [blockIDs[1]])),
-            renderer: selectedRenderer
+            chromeRenderer: selectedRenderer
         )
         prepare(activeController)
         prepare(selectedController)
         var drawEvents: [String] = []
-        activeRenderer.onDrawBlock = { drawEvents.append("chrome:\($0.rawValue)") }
+        activeRenderer.onDrawChrome = { drawEvents.append("chrome:\($0.rawValue)") }
         activeController.onDrawOverlay = { _, _ in drawEvents.append("overlay") }
         activeController.onDrawCompleted = { _, _ in drawEvents.append("completed") }
 
@@ -61,18 +61,18 @@ struct AppKitBlockRenderingBoundaryTests {
         #expect(drawEvents == ["chrome:a", "chrome:b", "overlay", "completed"])
     }
 
-    @Test("host chrome hook과 무관하게 TextKit2 text layout fragment를 그린다")
-    func drawsTextFragments() throws {
+    @Test("host chrome hook과 무관하게 adapter-owned TextKit2 text를 그린다")
+    func drawsText() throws {
         // Given
         let textController = makeTextController(
-            text: "Visible TextKit2 fragments",
+            text: "Visible TextKit2 text",
             selection: .inactive,
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
         let emptyController = makeTextController(
             text: "",
             selection: .inactive,
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
 
         // When
@@ -89,11 +89,44 @@ struct AppKitBlockRenderingBoundaryTests {
 
         // Then
         #expect(textBlock.frame.height == emptyBlock.frame.height)
-        withKnownIssue(
-            "host hook이 아직 TextKit2 text layout fragment drawing을 소유한다"
-        ) {
-            #expect(differenceCount > 10)
-        }
+        #expect(differenceCount > 10)
+    }
+
+    @Test("뒤 block chrome가 앞 block의 TextKit2 text drawing을 덮지 않는다")
+    func clipsChromeToBlockFrame() throws {
+        // Given
+        let textController = makeController(
+            blocks: [
+                EditorBlockInput(id: "a", content: BlockContent(text: "First block text")),
+                EditorBlockInput(id: "b", content: BlockContent(text: "Second block")),
+            ],
+            selection: .inactive,
+            chromeRenderer: OverflowingBlockChromeRenderer()
+        )
+        let emptyController = makeController(
+            blocks: [
+                EditorBlockInput(id: "a", content: BlockContent(text: "")),
+                EditorBlockInput(id: "b", content: BlockContent(text: "Second block")),
+            ],
+            selection: .inactive,
+            chromeRenderer: OverflowingBlockChromeRenderer()
+        )
+
+        // When
+        let textBitmap = try renderBitmap(for: textController)
+        let emptyBitmap = try renderBitmap(for: emptyController)
+        let firstTextFrame = try #require(
+            textController.snapshot?.visibleBlocks.first?.textRender.frame
+        )
+        let differenceCount = try countPixelDifferences(
+            textBitmap,
+            emptyBitmap,
+            in: firstTextFrame,
+            canvasBounds: textController.canvasView.bounds
+        )
+
+        // Then
+        #expect(differenceCount > 10)
     }
 
     @Test("host chrome hook과 무관하게 focus 위치에 caret feedback을 그린다")
@@ -103,12 +136,12 @@ struct AppKitBlockRenderingBoundaryTests {
         let leadingController = makeTextController(
             text: text,
             selection: .caret(blockID: "text", offset: 0),
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
         let trailingController = makeTextController(
             text: text,
             selection: .caret(blockID: "text", offset: text.count),
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
 
         // When
@@ -125,9 +158,7 @@ struct AppKitBlockRenderingBoundaryTests {
         )
 
         // Then
-        withKnownIssue("host hook이 아직 caret feedback drawing을 소유한다") {
-            #expect(differenceCount > 5)
-        }
+        #expect(differenceCount > 5)
     }
 
     @Test("host chrome hook과 무관하게 text selection feedback을 그린다")
@@ -143,7 +174,7 @@ struct AppKitBlockRenderingBoundaryTests {
                     focus: TextPosition(blockID: "text", offset: focusOffset)
                 )
             ),
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
         let narrowController = makeTextController(
             text: text,
@@ -153,7 +184,7 @@ struct AppKitBlockRenderingBoundaryTests {
                     focus: TextPosition(blockID: "text", offset: focusOffset)
                 )
             ),
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
 
         // When
@@ -170,18 +201,16 @@ struct AppKitBlockRenderingBoundaryTests {
         )
 
         // Then
-        withKnownIssue("host hook이 아직 text selection feedback drawing을 소유한다") {
-            #expect(differenceCount > 20)
-        }
+        #expect(differenceCount > 20)
     }
 
-    @Test("live marked text를 effective content의 TextKit2 fragment로 그린다")
+    @Test("live marked text를 effective content의 TextKit2 text drawing에 반영한다")
     func drawsMarkedText() throws {
         // Given
         let controller = makeTextController(
             text: "AB",
             selection: .caret(blockID: "text", offset: 1),
-            renderer: PoisoningBlockRenderer()
+            chromeRenderer: PoisoningBlockChromeRenderer()
         )
         prepare(controller)
         let baseline = try renderBitmap(for: controller, prepareBeforeDrawing: false)
@@ -207,9 +236,7 @@ struct AppKitBlockRenderingBoundaryTests {
 
         // Then
         #expect(effectiveText == "AMB")
-        withKnownIssue("host hook이 아직 live marked content drawing을 가릴 수 있다") {
-            #expect(differenceCount > 5)
-        }
+        #expect(differenceCount > 5)
     }
 
     @Test(
@@ -217,14 +244,14 @@ struct AppKitBlockRenderingBoundaryTests {
     )
     func isolatesGraphicsState() throws {
         // Given
-        let renderer = RecordingPoisoningBlockRenderer()
+        let renderer = RecordingPoisoningBlockChromeRenderer()
         let controller = makeController(
             blocks: [
                 EditorBlockInput(id: "a", content: BlockContent(text: "First")),
                 EditorBlockInput(id: "b", content: BlockContent(text: "Second")),
             ],
             selection: .inactive,
-            renderer: renderer
+            chromeRenderer: renderer
         )
         prepare(controller)
 
@@ -235,17 +262,14 @@ struct AppKitBlockRenderingBoundaryTests {
 
         // Then
         #expect(renderer.records.map(\.blockID) == ["a", "b"])
-        withKnownIssue(
-            "host hook의 graphics state가 다음 block과 native drawing에 누출된다"
-        ) {
-            #expect(second.transform == first.transform)
-            #expect(second.clipBounds == first.clipBounds)
-        }
+        #expect(second.transform == first.transform)
+        #expect(first.clipBounds == first.blockFrame)
+        #expect(second.clipBounds == second.blockFrame)
     }
 }
 
 @MainActor
-private final class RecordingBlockRenderer: AppKitBlockRenderer {
+private final class RecordingBlockChromeRenderer: AppKitBlockChromeRenderer {
     struct Record {
         let id: BlockID
         let kind: BlockKind
@@ -258,31 +282,30 @@ private final class RecordingBlockRenderer: AppKitBlockRenderer {
     }
 
     var records: [Record] = []
-    var onDrawBlock: ((BlockID) -> Void)?
+    var onDrawChrome: ((BlockID) -> Void)?
 
-    func drawBlock(_ context: AppKitBlockRenderContext) {
-        let rendered = context.renderedBlock
+    func drawChrome(_ context: AppKitBlockChromeRenderContext) {
         records.append(
             Record(
-                id: rendered.id,
-                kind: rendered.kind,
-                markerKind: rendered.markerKind,
-                depth: rendered.depth,
-                frame: CGRect(editorRect: rendered.frame),
+                id: context.blockID,
+                kind: context.kind,
+                markerKind: context.markerKind,
+                depth: context.depth,
+                frame: context.blockFrame,
                 fontSize: context.style.fontSize,
                 isActive: context.isActive,
                 isSelected: context.isSelected
             )
         )
-        onDrawBlock?(rendered.id)
-        AppKitDefaultBlockRenderer().drawBlock(context)
+        onDrawChrome?(context.blockID)
+        AppKitDefaultBlockChromeRenderer().drawChrome(context)
     }
 }
 
 @MainActor
-private struct PoisoningBlockRenderer: AppKitBlockRenderer {
-    func drawBlock(_ context: AppKitBlockRenderContext) {
-        let frame = CGRect(editorRect: context.renderedBlock.frame)
+private struct PoisoningBlockChromeRenderer: AppKitBlockChromeRenderer {
+    func drawChrome(_ context: AppKitBlockChromeRenderContext) {
+        let frame = context.blockFrame
         context.graphicsContext.setFillColor(NSColor.systemPink.cgColor)
         context.graphicsContext.fill(frame)
         poison(context.graphicsContext)
@@ -290,19 +313,31 @@ private struct PoisoningBlockRenderer: AppKitBlockRenderer {
 }
 
 @MainActor
-private final class RecordingPoisoningBlockRenderer: AppKitBlockRenderer {
+private struct OverflowingBlockChromeRenderer: AppKitBlockChromeRenderer {
+    func drawChrome(_ context: AppKitBlockChromeRenderContext) {
+        context.graphicsContext.setFillColor(NSColor.systemPink.cgColor)
+        context.graphicsContext.fill(
+            CGRect(x: -1_000, y: -1_000, width: 2_000, height: 2_000)
+        )
+    }
+}
+
+@MainActor
+private final class RecordingPoisoningBlockChromeRenderer: AppKitBlockChromeRenderer {
     struct Record {
         let blockID: BlockID
+        let blockFrame: CGRect
         let transform: CGAffineTransform
         let clipBounds: CGRect
     }
 
     var records: [Record] = []
 
-    func drawBlock(_ context: AppKitBlockRenderContext) {
+    func drawChrome(_ context: AppKitBlockChromeRenderContext) {
         records.append(
             Record(
-                blockID: context.renderedBlock.id,
+                blockID: context.blockID,
+                blockFrame: context.blockFrame,
                 transform: context.graphicsContext.ctm,
                 clipBounds: context.graphicsContext.boundingBoxOfClipPath
             )
@@ -321,12 +356,12 @@ private func poison(_ context: CGContext) {
 private func makeController(
     blocks: [EditorBlockInput],
     selection: EditorSelection,
-    renderer: any AppKitBlockRenderer
+    chromeRenderer: any AppKitBlockChromeRenderer
 ) -> AppKitEditorViewController {
     AppKitEditorViewController(
         blocks: blocks,
         selection: selection,
-        blockRenderer: renderer
+        blockChromeRenderer: chromeRenderer
     )
 }
 
@@ -334,12 +369,12 @@ private func makeController(
 private func makeTextController(
     text: String,
     selection: EditorSelection,
-    renderer: any AppKitBlockRenderer
+    chromeRenderer: any AppKitBlockChromeRenderer
 ) -> AppKitEditorViewController {
     makeController(
         blocks: [EditorBlockInput(id: "text", content: BlockContent(text: text))],
         selection: selection,
-        renderer: renderer
+        chromeRenderer: chromeRenderer
     )
 }
 

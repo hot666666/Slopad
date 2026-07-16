@@ -70,8 +70,12 @@ sources of truth.
 - `SlopadAppKitTextKit`: AppKit/TextKit2-based block text layout/rendering backend. It does not
   own native view/input host types or canonical editor state.
 - `SlopadAppKitUI`: reusable macOS AppKit adapter. It provides AppKit key/pointer/IME
-  callbacks, scroll/focus sync, TextKit drawing, and a block-kind chrome interface, but
-  it does not own engine semantics or canonical state.
+  callbacks, scroll/focus sync, TextKit2 fragment-based text drawing, and the
+  `AppKitBlockChromeRenderer` interface, but it does not own engine semantics or canonical
+  state. The chrome hook is clipped to its block frame and may draw backgrounds, borders,
+  gutters, and markers; text/text-selection/caret drawing remains adapter-owned and
+  follows the isolated chrome pass. Replacing the complete native text pipeline requires
+  a separate platform adapter with a coherent backend, not a high-level paint hook.
 - `SlopadDebugApp`: macOS reference/debug host. Debug-only state such as the debug HUD,
   scenario driver, screenshot capture, and state assertions stays out of the reusable UI
   package.

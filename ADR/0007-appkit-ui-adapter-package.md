@@ -28,7 +28,21 @@ The package owns reusable AppKit adapter code:
 - active text input and IME/marked-text synchronization
 - scroll/focus synchronization
 - TextKit-backed canvas drawing
-- block-kind chrome customization through a renderer interface
+- block-kind chrome customization through `AppKitBlockChromeRenderer`
+
+The block appearance extension point is chrome-only. A host renderer receives block
+identity, kind, marker, depth, frame, style, graphics context, and active/selected state.
+Its initializer is internal because only the adapter can assemble a valid context. It does
+not receive the Session snapshot, concrete text layouter/renderer, text render descriptor,
+or dirty rectangle. `SlopadAppKitUI` clips the hook to its block frame, saves and restores
+graphics state, then performs all chrome passes before its TextKit2 fragment-based text
+drawing, text selection, and caret feedback. Live marked text is projected into the
+effective content used by that same adapter-owned text drawing path.
+
+Replacing the complete native text pipeline requires a host to build a custom platform
+adapter around `EditorSession` and use a coherent backend that keeps layout, drawing, hit
+testing, caret/selection geometry, and native text geometry consistent. It is not exposed
+as another high-level paint hook in `SlopadAppKitUI`.
 
 It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `EditorModel`,
 `BlockLayout`, canonical `Document`, layout cache, or height-index storage.
@@ -41,5 +55,10 @@ It depends on `SlopadEngine` and `SlopadAppKitTextKit`. It does not expose `Edit
   `SlopadUIBenchmarkApp`.
 - AppKit UI customization happens through adapter-level renderer and controller hooks,
   not by moving editor semantics out of `EditorSession`.
+- `AppKitBlockRenderer`, `AppKitBlockRenderContext`, and `drawBlock(_:)` are replaced by
+  the chrome-specific names. This is intentionally source breaking: retaining the old
+  whole-block hook would keep a path that can suppress native text/input feedback or draw
+  it twice. Hosts migrate only their background, border, gutter, and marker drawing to
+  `drawChrome(_:)`.
 - A future UIKit adapter should follow the same rule: platform package owns native
   callback/drawing/focus glue while the engine owns semantic editing behavior.

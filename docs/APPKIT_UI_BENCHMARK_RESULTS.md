@@ -33,11 +33,13 @@ flowchart LR
     Surface["canvas resize<br/>active input sync<br/>setNeedsDisplay"]
     Display["displayIfNeeded<br/>avgDisplayMs"]
     Draw["draw(_:)<br/>avgDrawMs"]
-    TextDraw["block renderer<br/>TextKit2 drawing"]
+    Chrome["host block chrome hook"]
+    TextDraw["adapter-owned<br/>TextKit2 fragment-based text drawing"]
+    Decoration["adapter-owned<br/>text selection + caret"]
 
     Scenario --> Operation --> RenderSync
     RenderSync --> Render --> Layout --> TextLayout --> Snapshot --> Surface
-    Surface --> Display --> Draw --> TextDraw
+    Surface --> Display --> Draw --> Chrome --> TextDraw --> Decoration
 ```
 
 `scroll` is special. The benchmark changes scroll position before the timed frame. Read

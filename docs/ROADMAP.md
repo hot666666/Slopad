@@ -19,6 +19,10 @@ This document keeps only the current development direction for the Slopad projec
   render adapter surface for downstream macOS apps. It also handles edge autoscroll near
   the top/bottom of the viewport during block selection rectangles, gutter block
   selection, and block reorder.
+- AppKit block appearance customization is a chrome-only public contract. Host renderers
+  can draw backgrounds, borders, gutters, and markers, while the adapter always owns
+  TextKit2 fragment-based text drawing plus text-selection, caret, and live marked-content
+  feedback after clipped and isolated host chrome passes.
 - The AppKit path already routes native command selectors, IME/marked text, plain-text
   copy/cut/paste, undo/redo, scroll reveal, text selection, block selection, block
   selection rectangles, and selected-block drag/reorder through `EditorSession`.
@@ -38,7 +42,7 @@ needed before a host app can use the engine as a Notion/Craft-style editor surfa
 
 - AppKit adapter extension points are not yet explicit enough for product hosts. Key
   command maps, pasteboard policy, IME/composition policy, scroll reveal behavior, pointer
-  drag behavior, and block renderer customization need stable public contracts.
+  drag behavior, and remaining adapter policies need stable public contracts.
 - Clipboard support is currently plain text. Structured block copy/paste, rich inline
   paste, and format negotiation with platform pasteboards are not yet modeled.
 - Inline marks exist in the canonical model and TextKit rendering path, but there is no
@@ -60,8 +64,8 @@ Priority order:
 - P0 - AppKit integration contract hardening
   - Stabilize the reusable AppKit host surface before adding large product features.
   - Define extension points for key command mapping, pasteboard read/write policy,
-    IME/marked-text lifecycle, scroll reveal, pointer drag selection/reorder, and block
-    renderer customization.
+    IME/marked-text lifecycle, scroll reveal, and pointer drag selection/reorder. Preserve
+    the chrome-only renderer boundary while these policies are added.
   - Keep platform code limited to native callbacks, drawing, focus, scroll, and adapter
     policy. Semantic editing behavior stays behind `EditorSession`.
   - Completion signal: downstream hosts can customize the adapter without reaching into

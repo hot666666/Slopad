@@ -108,6 +108,17 @@ flowchart LR
 `SlopadEditorModel` and `SlopadBlockLayout` do not import each other. `EditorSession`
 combines their results and translates semantic changes into layout invalidation.
 
+On macOS, host-defined block appearance is deliberately limited to chrome through
+`AppKitBlockChromeRenderer`: backgrounds, borders, gutter markers, and similar decoration.
+`SlopadAppKitUI` clips and isolates that hook, then always performs its TextKit2
+fragment-based text drawing plus text-selection and caret feedback. Live marked text is
+included in the effective content sent through the same adapter-owned text drawing path.
+
+A host that needs to replace the entire native text pipeline must build its own platform
+adapter around `EditorSession`. That adapter must keep layout, drawing, hit testing,
+caret/selection geometry, and native text geometry coherent. The high-level chrome hook
+is not a partial text-renderer replacement point.
+
 SwiftPM keeps these responsibilities in separate targets. See `Package.swift` for the
 exact product and target list.
 

@@ -3,52 +3,62 @@ import CoreGraphics
 import SlopadAppKitTextKit
 import SlopadEngine
 
-// MARK: - AppKitBlockRenderer
+// MARK: - AppKitBlockChromeRenderer
 
+/// Draws host-defined block chrome without replacing native text and input feedback.
 @MainActor
-public protocol AppKitBlockRenderer {
-    func drawBlock(_ context: AppKitBlockRenderContext)
+public protocol AppKitBlockChromeRenderer {
+    /// Draws backgrounds, borders, gutters, markers, or equivalent block decoration.
+    ///
+    /// The adapter clips the graphics context to the block frame, restores graphics state
+    /// after the call, and draws its TextKit2-backed text and input feedback in later passes.
+    func drawChrome(_ context: AppKitBlockChromeRenderContext)
 }
 
-// MARK: - AppKitBlockRenderContext
+// MARK: - AppKitBlockChromeRenderContext
 
-public struct AppKitBlockRenderContext {
-    public let renderedBlock: EditorRenderedBlock
-    public let snapshot: EditorSessionSnapshot
+/// Read-only facts for one block's chrome pass in canvas/document coordinates.
+public struct AppKitBlockChromeRenderContext {
+    public let blockID: BlockID
+    public let kind: BlockKind
+    public let markerKind: BlockMarkerKind
+    public let depth: Int
+    /// The block's frame in canvas/document coordinates and the maximum paint region.
+    public let blockFrame: CGRect
     public let style: TextKitEditorStyle
-    public let textLayouter: TextKitBlockTextLayouter
-    public let textRenderer: TextKitBlockRenderer
-    public let dirtyRect: NSRect
+    /// A context clipped by both the current dirty region and ``blockFrame``.
+    ///
+    /// The adapter saves and restores its graphics state around `drawChrome(_:)`.
     public let graphicsContext: CGContext
     public let isActive: Bool
     public let isSelected: Bool
 
-    public init(
-        renderedBlock: EditorRenderedBlock,
-        snapshot: EditorSessionSnapshot,
+    init(
+        blockID: BlockID,
+        kind: BlockKind,
+        markerKind: BlockMarkerKind,
+        depth: Int,
+        blockFrame: CGRect,
         style: TextKitEditorStyle,
-        textLayouter: TextKitBlockTextLayouter,
-        textRenderer: TextKitBlockRenderer,
-        dirtyRect: NSRect,
         graphicsContext: CGContext,
         isActive: Bool,
         isSelected: Bool
     ) {
-        self.renderedBlock = renderedBlock
-        self.snapshot = snapshot
+        self.blockID = blockID
+        self.kind = kind
+        self.markerKind = markerKind
+        self.depth = depth
+        self.blockFrame = blockFrame
         self.style = style
-        self.textLayouter = textLayouter
-        self.textRenderer = textRenderer
-        self.dirtyRect = dirtyRect
         self.graphicsContext = graphicsContext
         self.isActive = isActive
         self.isSelected = isSelected
     }
 }
 
-// MARK: - AppKitDefaultBlockRenderer
+// MARK: - AppKitDefaultBlockChromeRenderer
 
-public struct AppKitDefaultBlockRenderer: AppKitBlockRenderer {
+public struct AppKitDefaultBlockChromeRenderer: AppKitBlockChromeRenderer {
     // MARK: - Private Types
 
     private enum UX {
@@ -64,9 +74,6 @@ public struct AppKitDefaultBlockRenderer: AppKitBlockRenderer {
         static let gutterFallbackInset: CGFloat = 4
         static let gutterSymbolFraction: CGFloat = 0.82
         static let gutterTextFontSize: CGFloat = 11
-        static let activeSelectionAlpha: CGFloat = 0.35
-        static let caretMinimumWidth: CGFloat = 1
-        static let caretMinimumHeight: CGFloat = 14
     }
 
     // MARK: - Init
@@ -75,25 +82,22 @@ public struct AppKitDefaultBlockRenderer: AppKitBlockRenderer {
 
     // MARK: - Public
 
-    public func drawBlock(_ context: AppKitBlockRenderContext) {
-        let rendered = context.renderedBlock
-        let frame = CGRect(editorRect: rendered.frame)
-
-        drawBlockBackground(frame, context: context)
-        drawGutter(for: rendered, frame: frame, context: context)
-        context.textRenderer.draw(rendered.textRender, context: context.graphicsContext)
-
-        if context.isActive, let activeTextInput = context.snapshot.activeTextInput {
-            drawActiveTextInputDecorations(activeTextInput, context: context)
-        }
+    public func drawChrome(_ context: AppKitBlockChromeRenderContext) {
+        drawBlockBackground(context.blockFrame, context: context)
+        drawGutter(frame: context.blockFrame, context: context)
     }
 
     // MARK: - Block Drawing
 
-    private func drawBlockBackground(_ frame: CGRect, context: AppKitBlockRenderContext) {
+    private func drawBlockBackground(
+        _ frame: CGRect,
+        context: AppKitBlockChromeRenderContext
+    ) {
         let blockBackground: NSColor
         if context.isActive {
-            blockBackground = NSColor.controlAccentColor.withAlphaComponent(UX.activeBackgroundAlpha)
+            blockBackground = NSColor.controlAccentColor.withAlphaComponent(
+                UX.activeBackgroundAlpha
+            )
         } else if context.isSelected {
             blockBackground = NSColor.selectedContentBackgroundColor
                 .withAlphaComponent(UX.selectedBackgroundAlpha)
@@ -118,9 +122,8 @@ public struct AppKitDefaultBlockRenderer: AppKitBlockRenderer {
     }
 
     private func drawGutter(
-        for rendered: EditorRenderedBlock,
         frame: CGRect,
-        context: AppKitBlockRenderContext
+        context: AppKitBlockChromeRenderContext
     ) {
         let gutterRect = CGRect(
             x: 0,
@@ -135,87 +138,33 @@ public struct AppKitDefaultBlockRenderer: AppKitBlockRenderer {
             width: UX.gutterSeparatorWidth,
             height: gutterRect.height
         ).fill()
-        drawGutterMarker(for: rendered, in: gutterRect)
-    }
-
-    // MARK: - Active Input Drawing
-
-    private func drawActiveTextInputDecorations(
-        _ descriptor: EditorSessionActiveTextInputDescriptor,
-        context: AppKitBlockRenderContext
-    ) {
-        NSColor.selectedTextBackgroundColor.withAlphaComponent(UX.activeSelectionAlpha).setFill()
-        for rect in selectionRects(for: descriptor, context: context) where rect.width > 0 {
-            rect.fill()
-        }
-
-        guard let caretRect = caretRect(for: descriptor, context: context) else { return }
-        NSColor.controlAccentColor.setFill()
-        CGRect(
-            x: caretRect.minX,
-            y: caretRect.minY,
-            width: max(UX.caretMinimumWidth, caretRect.width),
-            height: max(UX.caretMinimumHeight, caretRect.height)
-        ).fill()
-    }
-
-    private func caretRect(
-        for descriptor: EditorSessionActiveTextInputDescriptor,
-        context: AppKitBlockRenderContext
-    ) -> CGRect? {
-        let request = descriptor.renderDescriptor.measureRequest
-        let position = TextPosition(blockID: request.blockID, offset: descriptor.focusOffset)
-        guard
-            let localRect = context.textLayouter.caretRect(
-                for: position,
-                in: descriptor.renderDescriptor
-            )
-        else { return nil }
-        return documentRect(localRect, in: descriptor.renderDescriptor, context: context)
-    }
-
-    private func selectionRects(
-        for descriptor: EditorSessionActiveTextInputDescriptor,
-        context: AppKitBlockRenderContext
-    ) -> [CGRect] {
-        context.textLayouter.selectionRects(
-            for: descriptor.selectedRange,
-            in: descriptor.renderDescriptor
-        ).map {
-            documentRect($0, in: descriptor.renderDescriptor, context: context)
-        }
-    }
-
-    private func documentRect(
-        _ localRect: EditorRect,
-        in descriptor: EditorTextRenderDescriptor,
-        context: AppKitBlockRenderContext
-    ) -> CGRect {
-        let localFrame = context.textLayouter.textFrame(for: descriptor, measuredHeight: nil)
-        return CGRect(
-            x: CGFloat(localRect.x + descriptor.frame.x - localFrame.x),
-            y: CGFloat(localRect.y + descriptor.frame.y - localFrame.y),
-            width: CGFloat(localRect.width),
-            height: CGFloat(localRect.height)
+        drawGutterMarker(
+            markerKind: context.markerKind,
+            kind: context.kind,
+            in: gutterRect
         )
     }
 
     // MARK: - Gutter Drawing
 
-    private func drawGutterMarker(for rendered: EditorRenderedBlock, in rect: CGRect) {
-        if case .orderedListItem(let number) = rendered.markerKind {
+    private func drawGutterMarker(
+        markerKind: BlockMarkerKind,
+        kind: BlockKind,
+        in rect: CGRect
+    ) {
+        if case .orderedListItem(let number) = markerKind {
             drawGutterText("\(number).", in: rect)
             return
         }
 
         let symbolName: String
-        switch rendered.markerKind {
+        switch markerKind {
         case .unorderedListItem:
             symbolName = "list.bullet"
         case .todo(let checked):
             symbolName = checked ? "checkmark.square" : "square"
         case .none:
-            symbolName = gutterSymbolName(for: rendered.kind)
+            symbolName = gutterSymbolName(for: kind)
         case .orderedListItem:
             symbolName = "list.number"
         }

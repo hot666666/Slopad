@@ -41,18 +41,6 @@ final class DebugViewController: NSViewController {
         editorViewController.scrollView
     }
 
-    var canvasView: AppKitEditorCanvasView {
-        editorViewController.canvasView
-    }
-
-    var textLayouter: TextKitBlockTextLayouter {
-        editorViewController.textLayouter
-    }
-
-    var textRenderer: TextKitBlockRenderer {
-        editorViewController.textRenderer
-    }
-
     var activeNativeText: String {
         editorViewController.activeNativeText
     }

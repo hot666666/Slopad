@@ -27,23 +27,24 @@ public final class AppKitEditorViewController: NSViewController {
     // MARK: - Public State
 
     public let editorStyle: TextKitEditorStyle
-    public let textLayouter: TextKitBlockTextLayouter
-    public let textRenderer: TextKitBlockRenderer
     public let scrollView = NSScrollView()
     public private(set) var session: EditorSession
     public private(set) var snapshot: EditorSessionSnapshot?
-    public var blockRenderer: any AppKitBlockRenderer
+    public var blockChromeRenderer: any AppKitBlockChromeRenderer
     public var onSnapshotChanged: ((EditorSessionSnapshot) -> Void)?
     public var onUpdate: ((EditorUpdate) -> Void)?
-    public var onDrawOverlay: ((NSRect, EditorSessionSnapshot) -> Void)?
-    public var onDrawCompleted: ((NSRect, UInt64) -> Void)?
+    package var onDrawOverlay: ((NSRect, EditorSessionSnapshot) -> Void)?
+    package var onDrawCompleted: ((NSRect, UInt64) -> Void)?
 
-    public var canvasView: AppKitEditorCanvasView {
+    var canvasView: AppKitEditorCanvasView {
         editorCanvasView
     }
 
     // MARK: - Private State
 
+    private let textLayouter: TextKitBlockTextLayouter
+    private let textRenderer: TextKitBlockRenderer
+    private let textInputDecorationRenderer: AppKitTextInputDecorationRenderer
     private lazy var editorCanvasView = AppKitEditorCanvasView(handler: self)
     private lazy var activeInputController = AppKitActiveInputController(owner: self)
     private lazy var dragAutoscrollController = AppKitDragAutoscrollController(
@@ -69,18 +70,22 @@ public final class AppKitEditorViewController: NSViewController {
         blocks: [EditorBlockInput],
         selection: EditorSelection? = nil,
         style: TextKitEditorStyle = TextKitEditorStyle(),
-        blockRenderer: any AppKitBlockRenderer = AppKitDefaultBlockRenderer(),
+        blockChromeRenderer: any AppKitBlockChromeRenderer = AppKitDefaultBlockChromeRenderer(),
         focusOnAppear: Bool = false
     ) {
+        let textLayouter = TextKitBlockTextLayouter(style: style)
         self.editorStyle = style
-        self.textLayouter = TextKitBlockTextLayouter(style: style)
+        self.textLayouter = textLayouter
         self.textRenderer = TextKitBlockRenderer(style: style)
+        self.textInputDecorationRenderer = AppKitTextInputDecorationRenderer(
+            textLayouter: textLayouter
+        )
         self.session = EditorSession(
             blocks: blocks,
             selection: selection,
-            textLayouter: self.textLayouter
+            textLayouter: textLayouter
         )
-        self.blockRenderer = blockRenderer
+        self.blockChromeRenderer = blockChromeRenderer
         self.focusOnAppear = focusOnAppear
         super.init(nibName: nil, bundle: nil)
     }
@@ -391,18 +396,35 @@ extension AppKitEditorViewController: AppKitEditorCanvasHandler {
         let selectedBlockIDs = selectedBlockIDs(in: snapshot)
         let activeTextBlockID = snapshot.activeTextInput?.renderDescriptor.measureRequest.blockID
         for rendered in snapshot.visibleBlocks {
-            blockRenderer.drawBlock(
-                AppKitBlockRenderContext(
-                    renderedBlock: rendered,
-                    snapshot: snapshot,
-                    style: editorStyle,
-                    textLayouter: textLayouter,
-                    textRenderer: textRenderer,
-                    dirtyRect: dirtyRect,
-                    graphicsContext: cgContext,
-                    isActive: rendered.id == activeTextBlockID,
-                    isSelected: selectedBlockIDs.contains(rendered.id)
+            let isActive = rendered.id == activeTextBlockID
+            let blockFrame = CGRect(editorRect: rendered.frame)
+            do {
+                cgContext.saveGState()
+                defer { cgContext.restoreGState() }
+                cgContext.clip(to: blockFrame)
+                blockChromeRenderer.drawChrome(
+                    AppKitBlockChromeRenderContext(
+                        blockID: rendered.id,
+                        kind: rendered.kind,
+                        markerKind: rendered.markerKind,
+                        depth: rendered.depth,
+                        blockFrame: blockFrame,
+                        style: editorStyle,
+                        graphicsContext: cgContext,
+                        isActive: isActive,
+                        isSelected: selectedBlockIDs.contains(rendered.id)
+                    )
                 )
+            }
+        }
+
+        for rendered in snapshot.visibleBlocks {
+            textRenderer.draw(rendered.textRender, context: cgContext)
+        }
+        if let activeTextInput = snapshot.activeTextInput {
+            textInputDecorationRenderer.draw(
+                activeTextInput,
+                graphicsContext: cgContext
             )
         }
         drawBlockSelectionRectangle(snapshot.blockSelectionRectangleState?.rect)
