@@ -111,7 +111,14 @@ let package = Package(
             name: "SlopadAppKitTextKitTests",
             dependencies: [
                 "SlopadCoreModel",
-                "SlopadAppKitTextKit"
+                "SlopadAppKitTextKit",
+            ]
+        ),
+        .testTarget(
+            name: "SlopadAppKitUITests",
+            dependencies: [
+                "SlopadEngine",
+                "SlopadAppKitUI",
             ]
         )
     ]
