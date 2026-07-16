@@ -26,27 +26,51 @@ struct EditorSessionLayoutInvalidationTests {
         #expect(textLayouter.measuredBlockIDs == [blockID])
     }
 
-    @Test("레이아웃 스타일 리비전 변경은 세션을 통해 레이아웃을 갱신 필요로 만들고 다음 스냅샷 리비전에 반영된다")
-    func appliesStyleRevisionChange() {
+    @Test("text layout backend 교체는 새 backend로 전체 geometry를 다시 측정한다")
+    func replacesTextLayoutBackend() {
         // Given
         let blockID: BlockID = "a"
-        let textLayouter = RecordingBlockTextLayouter()
+        let originalLayouter = RecordingBlockTextLayouter(
+            measurementsByBlockID: [blockID: BlockMeasurement(height: 12)]
+        )
+        let replacementLayouter = RecordingBlockTextLayouter(
+            measurementsByBlockID: [blockID: BlockMeasurement(height: 48)]
+        )
         let session = EditorSession(
             document: .singleParagraph("Hi", id: blockID),
-            textLayouter: textLayouter
+            selection: .caret(blockID: blockID, offset: 1),
+            textLayouter: originalLayouter
         )
         let viewport = EditorViewport(width: 240, scrollY: 0, height: 400)
-        _ = session.render(in: viewport)
-        textLayouter.measuredBlockIDs.removeAll()
+        _ = session.handleInput(
+            .beginComposition(
+                blockID: blockID,
+                replacementRange: TextRange(1, 1),
+                text: "marked"
+            )
+        )
+        let originalSnapshot = session.render(in: viewport)
+        originalLayouter.measuredBlockIDs.removeAll()
 
         // When
-        let update = session.setLayoutStyleRevision(7)
-        let snapshot = session.render(in: viewport)
+        let update = session.replaceTextLayoutBackend(with: replacementLayouter)
+        let replacementSnapshot = session.render(in: viewport)
 
         // Then
+        #expect(update.invalidation.blockIDs.isEmpty)
         #expect(update.invalidation.layoutGeometryChanged)
-        #expect(snapshot.revision.styleRevision == 7)
-        #expect(textLayouter.measuredBlockIDs == [blockID])
+        #expect(originalLayouter.measuredBlockIDs.isEmpty)
+        #expect(replacementLayouter.measuredBlockIDs == [blockID])
+        #expect(originalSnapshot.totalHeight == 12)
+        #expect(replacementSnapshot.totalHeight == 48)
+        #expect(update.selection == originalSnapshot.selection)
+        #expect(update.composition == originalSnapshot.composition)
+        #expect(update.history.canUndo == originalSnapshot.history.canUndo)
+        #expect(update.history.canRedo == originalSnapshot.history.canRedo)
+        #expect(
+            replacementSnapshot.revision.textLayoutRevision
+                == originalSnapshot.revision.textLayoutRevision + 1
+        )
     }
 
     @Test("특정 블록 측정 무효화는 세션을 통해 해당 블록만 다시 측정한다")

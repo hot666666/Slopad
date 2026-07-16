@@ -625,7 +625,7 @@ extension DebugViewController {
         return [
             "rev(doc=\(comparison.documentRevision)",
             "comp=\(comparison.compositionRevision)",
-            "style=\(comparison.styleRevision)",
+            "textLayout=\(comparison.textLayoutRevision)",
             "width=\(debugHUDChangeLabel(comparison.widthChanged, comparison: comparison))",
             "visible=\(debugHUDChangeLabel(comparison.visibleSequenceChanged, comparison: comparison)))",
         ].joined(separator: " ")

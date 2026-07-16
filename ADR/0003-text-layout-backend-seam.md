@@ -34,6 +34,12 @@ queries, and adapter drawing helpers then consume the same effective request. A 
 alternative pipeline therefore pairs a coherent backend with its own platform adapter
 around `EditorSession`.
 
+Runtime backend replacement is an atomic Session operation. Replacing the backend advances
+the text-layout revision, discards cached and lazy-estimate measurements produced by the
+previous backend, and marks all layout geometry dirty. A platform adapter that owns a
+matching drawing backend replaces both sides from one configuration before publishing its
+next surface.
+
 ## Consequences
 
 - Do not rename `textLayouter` to `textMeasurer`; the seam covers more than height.
@@ -45,3 +51,4 @@ around `EditorSession`.
 - Native views draw from session render descriptors and backend layout results; they do
   not own editor selection/composition semantics.
 - The default AppKit chrome/theme hook cannot replace backend text layout or drawing.
+- Hosts do not mutate layout revision counters independently of the backend instance.
