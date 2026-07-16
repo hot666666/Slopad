@@ -15,3 +15,4 @@ the decisions that led to it.
 - [0005 - Keep benchmark APIs out of the public library surface](0005-benchmarks-as-development-targets.md)
 - [0006 - Source layout exposes ownership](0006-source-layout-exposes-ownership.md)
 - [0007 - Provide AppKit UI as a reusable adapter package](0007-appkit-ui-adapter-package.md)
+- [0008 - Keep EditorSession confined to one executor](0008-keep-editor-session-executor-confined.md)

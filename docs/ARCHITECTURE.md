@@ -195,6 +195,14 @@ canvas, native input state, focus state, and observer publication agree. Package
 no-render helpers exist for development harnesses that explicitly perform the later
 render/synchronization step.
 
+### Mutable Sessions Stay on One Executor
+
+`EditorSession` is a synchronous mutable runtime, not a `Sendable` value. The executor that
+creates a Session owns it for its lifetime and calls it serially. Platform adapters choose
+that executor—the default AppKit adapter uses `MainActor`—while `Sendable` inputs, updates,
+and snapshots may cross isolation boundaries. This keeps the headless engine independent
+of a global UI actor without making an unchecked thread-safety promise.
+
 ### Outer Consumers Verify; They Do Not Define
 
 `SlopadDebugApp`, benchmark targets, tests, and fixtures consume production layers. They
@@ -220,5 +228,6 @@ Before changing a layer boundary, answer these questions:
 
 Related decisions: [ADR 0001](../ADR/0001-headless-session-facade.md),
 [ADR 0002](../ADR/0002-swiftpm-target-graph.md),
-[ADR 0003](../ADR/0003-text-layout-backend-seam.md), and
-[ADR 0007](../ADR/0007-appkit-ui-adapter-package.md).
+[ADR 0003](../ADR/0003-text-layout-backend-seam.md),
+[ADR 0007](../ADR/0007-appkit-ui-adapter-package.md), and
+[ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md).

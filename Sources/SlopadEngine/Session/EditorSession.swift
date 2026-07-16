@@ -4,7 +4,12 @@ import SlopadEditorModel
 
 // MARK: - EditorSession
 
-public final class EditorSession: @unchecked Sendable {
+/// Mutable editor runtime owned and called serially by one executor.
+///
+/// `EditorSession` is intentionally not `Sendable`. A host keeps the session on the
+/// executor where it was created and transfers only `Sendable` input, update, and snapshot
+/// values across isolation boundaries.
+public final class EditorSession {
     // MARK: - Public Interface
 
     public convenience init(
