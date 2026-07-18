@@ -30,7 +30,8 @@ extension EditorModel {
                 }
             }
 
-            guard beforeDocument != document || beforeSelection != selection || !operations.isEmpty
+            let documentChanged = !beforeDocument.hasSameCanonicalContent(as: document)
+            guard documentChanged || beforeSelection != selection || !operations.isEmpty
             else {
                 return nil
             }
@@ -41,6 +42,7 @@ extension EditorModel {
                 selectionBefore: beforeSelection,
                 selectionAfter: selection,
                 change: EditorChange(
+                    documentChanged: documentChanged,
                     changedBlockIDs: changed,
                     operations: operations
                 )

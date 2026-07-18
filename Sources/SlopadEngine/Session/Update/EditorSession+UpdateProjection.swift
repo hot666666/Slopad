@@ -29,6 +29,9 @@ extension EditorSession {
 
     func markLayoutDirty(for change: EditorChange?) -> EditorUpdateInvalidation {
         guard let change else { return EditorUpdateInvalidation() }
+        if change.documentChanged {
+            recordDocumentChange()
+        }
         let invalidations = Self.projectInvalidations(for: change)
         blockLayout.markDirty(invalidations.layout)
         return invalidations.update
@@ -38,12 +41,14 @@ extension EditorSession {
         invalidation: EditorUpdateInvalidation,
         previousSelection: EditorSelection? = nil
     ) -> EditorUpdate {
+        let committedDocumentRevision = takePendingDocumentRevision()
         #if SLOPAD_BENCHMARK_INSTRUMENTATION
         return EditorUpdate(
             selection: activeEditorSelection,
             previousSelection: previousSelection,
             composition: composition,
             history: historyState,
+            committedDocumentRevision: committedDocumentRevision,
             layoutDirty: blockLayout.isDirty,
             invalidation: invalidation
         )
@@ -53,6 +58,7 @@ extension EditorSession {
                 previousSelection: previousSelection,
                 composition: composition,
                 history: historyState,
+                committedDocumentRevision: committedDocumentRevision,
                 invalidation: invalidation
             )
         #endif

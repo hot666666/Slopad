@@ -22,6 +22,12 @@ keyboard/pointer/native command/IME composition semantics, command application,
 undo/redo, semantic change projection, block layout orchestration, hit testing, reveal
 geometry, and render snapshots.
 
+The public persistence projection is `EditorDocumentSnapshot`, not
+`EditorSessionSnapshot.visibleBlocks`. `EditorUpdate.committedDocumentRevision` is present
+only for a committed canonical mutation. Hosts read the matching complete snapshot on the
+Session-owning executor before transferring that `Sendable` value elsewhere. The revision
+is scoped to one Session and must not be treated as a database revision.
+
 The engine does not own platform widgets. Concrete views such as `NSTextView` or
 `UITextView` are not engine targets. A native surface collects OS callbacks, forwards them
 as engine input, and draws engine snapshots. `SlopadEngine` decides semantic behavior such
@@ -106,6 +112,9 @@ used by `Session` when it builds `BlockLayout` requests.
   Session runtime state. Ordinary editing exits such as focusing another block, entering
   block selection, or clicking empty space commit composition first. It is discarded only
   when native input sends an explicit cancel.
+- `EditorDocumentSnapshot` is the complete canonical host projection in depth-first
+  preorder. Selection, layout, scrolling, and live composition do not advance its
+  Session-local revision; explicit and implicit composition commits do.
 - `BlockLayout` owns visible order, y/height, hit/reveal geometry, marker projection, and
   layout invalidation. `EditorSession` assembles UI render descriptors and host-facing
   snapshots.

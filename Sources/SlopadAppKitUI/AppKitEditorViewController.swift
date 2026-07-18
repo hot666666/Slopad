@@ -175,6 +175,10 @@ public final class AppKitEditorViewController: NSViewController {
     public var editorStyle: TextKitEditorStyle {
         textPipeline.style
     }
+    /// Complete committed canonical content, independent of the current viewport.
+    public var documentSnapshot: EditorDocumentSnapshot {
+        session.documentSnapshot
+    }
     public private(set) var snapshot: EditorSessionSnapshot?
     public var blockChromeRenderer: any AppKitBlockChromeRenderer
     public var onSnapshotChanged: ((EditorSessionSnapshot) -> Void)?

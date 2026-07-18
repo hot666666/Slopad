@@ -73,8 +73,10 @@ flowchart LR
     Model["EditorModel<br/>canonical mutation"]
     Layout["BlockLayout<br/>derived geometry + visibility"]
     Backend["SlopadAppKitTextKit<br/>TextKit2 layout + geometry + Unicode navigation + drawing"]
-    Snapshot["EditorSessionSnapshot<br/>host-facing projection"]
+    RenderSnapshot["EditorSessionSnapshot<br/>viewport render projection"]
+    DocumentSnapshot["EditorDocumentSnapshot<br/>complete canonical projection"]
     Surface["AppKit surface<br/>canvas · focus · scroll · native input feedback"]
+    DocumentHost["Document host<br/>debounced persistence"]
 
     OS --> UI
     UI -->|"EditorInputEvent"| Session
@@ -84,8 +86,10 @@ flowchart LR
     Layout -->|"effective content + layout facts"| Session
     Layout -->|"measurement/cache through protocol"| Backend
     Session -->|"text frame/hit/caret/line geometry through protocol"| Backend
-    Session --> Snapshot
-    Snapshot --> UI
+    Session --> RenderSnapshot
+    RenderSnapshot --> UI
+    Session -->|"revision signal + on-demand full tree"| DocumentSnapshot
+    DocumentSnapshot --> DocumentHost
     UI -->|"fragment drawing + synchronized surface effects"| Surface
     UI -->|"drawing helpers"| Backend
 ```
@@ -101,6 +105,10 @@ backend. The arrows describe collaboration, not shared ownership. In particular:
   Those values are projections of canonical state, not a second editor model.
 - `EditorSession` owns runtime orchestration, including the live composition overlay, and
   assembles snapshots. It does not absorb the canonical or layout owners.
+- `EditorDocumentSnapshot` is the complete persistence-facing projection of the canonical
+  model. Its blocks use depth-first preorder and never derive from visible layout. A
+  Session-local monotonic revision signal distinguishes committed mutations from runtime
+  updates; it is not a host storage revision.
 - Selection inside marked text is also a Session overlay in effective-text coordinates.
   Update/snapshot projections may expose it while composition is live, but
   `EditorModel.selection` remains in canonical document coordinates.
@@ -165,7 +173,7 @@ that keeps every geometry operation coherent.
 | --- | --- | --- |
 | `SlopadEditorModel` | Stored document, block identity, selection, commands, transactions, history, semantic changes | Layout caches, y offsets, native callbacks, live platform geometry |
 | `SlopadBlockLayout` | Effective content projection, visible order, y/height index, text-layout cache, invalidation, hit/reveal geometry, marker projection | Canonical mutation, command semantics, AppKit/TextKit2 types |
-| `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, snapshot/update assembly | Platform widgets, canonical storage duplication, backend implementation details |
+| `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, render snapshot/update assembly, on-demand complete canonical projection | Platform widgets, canonical storage duplication, backend implementation details |
 | `SlopadAppKitUI` | Native callback translation, native text pipeline integration, fragment/feedback drawing order, focus/scroll/canvas synchronization | Editor semantics, canonical state, arbitrary whole-text paint hooks |
 | `SlopadAppKitTextKit` | TextKit2 fragment layout, caret/selection geometry, text hit testing, bidi/Unicode word navigation, attributed content and drawing helpers | Native view/input host, canonical editor state, Session orchestration |
 | `SlopadCoreModel` | Cross-boundary vocabulary, backend seam values, canonical value definitions | Owner-specific caches, policies, projections, generic helpers |
@@ -215,6 +223,15 @@ that executor—the default AppKit adapter uses `MainActor`—while `Sendable` i
 and snapshots may cross isolation boundaries. This keeps the headless engine independent
 of a global UI actor without making an unchecked thread-safety promise.
 
+### Persistence Reads Canonical State, Not Render State
+
+`EditorUpdate.committedDocumentRevision` identifies a canonical content or structure
+commit within one Session. A host reads the matching `EditorDocumentSnapshot` synchronously
+on that Session's executor only when it needs the complete tree. Selection, scrolling,
+layout, and live composition do not advance the revision. The projection is `Sendable`, but
+the Session remains confined. `EditorSessionSnapshot.visibleBlocks` is a viewport render
+projection and must never be reconstructed into persistence content.
+
 ### Outer Consumers Verify; They Do Not Define
 
 `SlopadDebugApp`, benchmark targets, tests, and fixtures consume production layers. They
@@ -241,5 +258,6 @@ Before changing a layer boundary, answer these questions:
 Related decisions: [ADR 0001](../ADR/0001-headless-session-facade.md),
 [ADR 0002](../ADR/0002-swiftpm-target-graph.md),
 [ADR 0003](../ADR/0003-text-layout-backend-seam.md),
-[ADR 0007](../ADR/0007-appkit-ui-adapter-package.md), and
-[ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md).
+[ADR 0007](../ADR/0007-appkit-ui-adapter-package.md),
+[ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md), and
+[ADR 0009](../ADR/0009-publish-committed-document-snapshots.md).

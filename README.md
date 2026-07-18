@@ -48,6 +48,7 @@ SlopadEngine owns the semantic editor model:
 - caret, text selection, and block selection
 - keyboard, pointer, native command, and IME/composition semantics
 - command application, undo/redo, and semantic change projection
+- committed full-document revision signals and viewport-independent canonical snapshots
 - block layout orchestration, hit testing, reveal geometry, and render snapshots
 
 The engine does not own platform widgets. A host view receives native callbacks,
@@ -146,6 +147,14 @@ marked text, native selection, and current responder ownership. `updateEditorSty
 atomically replaces the AppKit text layout/drawing pipeline and synchronizes the resulting
 surface with the same preservation guarantees. Unsynchronized `...WithoutRendering`
 helpers are package-only development hooks.
+
+Canonical persistence content is a separate public projection from render snapshots.
+`EditorUpdate.committedDocumentRevision` advances only for committed content or structure
+changes. A Session host can then read `EditorSession.documentSnapshot`; an AppKit host can
+read `AppKitEditorViewController.documentSnapshot` synchronously from `onUpdate`. The
+snapshot contains every canonical block in depth-first preorder and excludes selection,
+viewport, layout, scroll, and live IME composition. `visibleBlocks` is never a persistence
+source. Revisions are monotonic only within one Session and are not host storage revisions.
 
 SwiftPM keeps these responsibilities in separate targets. See `Package.swift` for the
 exact product and target list.
