@@ -55,10 +55,10 @@ struct EditorModelUndoRedoTests {
 
         // Then
         #expect(result != nil)
-        #expect(didUndo)
+        #expect(didUndo != nil)
         #expect(textAfterUndo == "")
         #expect(selectionAfterUndo == .caret(blockID: blockID, offset: 0))
-        #expect(didRedo)
+        #expect(didRedo != nil)
         #expect(editor.document.block(blockID)?.content.text == "한!글")
         #expect(editor.selection == .caret(blockID: blockID, offset: 2))
         #expect(editor.undoStack.count == 1)
@@ -116,7 +116,7 @@ struct EditorModelUndoRedoTests {
         #expect(undoStackCountAfterInsertions == expectedUndoStackCount)
         #expect(textAfterFirstUndo == expectedTextAfterFirstUndo)
         #expect(textAfterSecondUndo == expectedTextAfterSecondUndo)
-        #expect(!didUndoEvictedTransaction)
+        #expect(didUndoEvictedTransaction == nil)
     }
 
     @Test("실행 취소 byte 예산을 넘으면 최신 transaction만 보존된다")
@@ -144,7 +144,7 @@ struct EditorModelUndoRedoTests {
         // Then
         #expect(undoStackCountAfterInsertions == expectedUndoStackCount)
         #expect(textAfterUndo == expectedTextAfterUndo)
-        #expect(!didUndoEvictedTransaction)
+        #expect(didUndoEvictedTransaction == nil)
     }
 
     @Test("undo 후 새 command를 적용하면 redo stack이 비워진다")

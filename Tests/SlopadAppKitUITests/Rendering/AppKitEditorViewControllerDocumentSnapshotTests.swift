@@ -20,8 +20,9 @@ struct AppKitEditorViewControllerDocumentSnapshotTests {
             selection: .caret(blockID: blockID, offset: 1)
         )
         var deliveredSnapshot: EditorDocumentSnapshot?
-        controller.onUpdate = { update in
+        controller.onUpdate = { [weak controller] update in
             guard let revision = update.committedDocumentRevision else { return }
+            guard let controller else { return }
             let snapshot = controller.documentSnapshot
             #expect(snapshot.revision == revision)
             deliveredSnapshot = snapshot

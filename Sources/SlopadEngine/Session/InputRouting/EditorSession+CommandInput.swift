@@ -192,9 +192,8 @@ extension EditorSession {
 
     private func handleUndoInputCommand() -> EditorUpdate? {
         let previousSelection = editorModel.selection
-        let previousDocument = editorModel.document
-        guard editorModel.undo() else { return nil }
-        if !previousDocument.hasSameCanonicalContent(as: editorModel.document) {
+        guard let change = editorModel.undo() else { return nil }
+        if change.documentChanged {
             recordDocumentChange()
         }
         textNavigationRuntimeContext = nil
@@ -210,9 +209,8 @@ extension EditorSession {
 
     private func handleRedoInputCommand() -> EditorUpdate? {
         let previousSelection = editorModel.selection
-        let previousDocument = editorModel.document
-        guard editorModel.redo() else { return nil }
-        if !previousDocument.hasSameCanonicalContent(as: editorModel.document) {
+        guard let change = editorModel.redo() else { return nil }
+        if change.documentChanged {
             recordDocumentChange()
         }
         textNavigationRuntimeContext = nil

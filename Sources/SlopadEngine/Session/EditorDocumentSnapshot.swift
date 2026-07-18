@@ -2,7 +2,11 @@ import SlopadCoreModel
 
 // MARK: - EditorDocumentRevision
 
-/// A monotonically increasing committed-content token scoped to one `EditorSession`.
+/// A monotonically increasing committed content-or-structure token scoped to one
+/// `EditorSession`.
+///
+/// A replacement Session, including `AppKitEditorViewController.resetDocument`, starts a
+/// new revision sequence at zero. This value is not a host database or storage revision.
 public struct EditorDocumentRevision: RawRepresentable, Hashable, Codable, Comparable, Sendable {
     public let rawValue: UInt64
 
@@ -24,6 +28,10 @@ public struct EditorDocumentRevision: RawRepresentable, Hashable, Codable, Compa
 /// layout, scrolling, and live IME composition do not advance it.
 public struct EditorDocumentSnapshot: Hashable, Codable, Sendable {
     public let revision: EditorDocumentRevision
+    /// Every canonical block in depth-first preorder.
+    ///
+    /// Parents always precede descendants. Array order is the canonical root and sibling
+    /// order and must be preserved when reconstructing the tree.
     public let blocks: [EditorBlockInput]
 
     init(revision: EditorDocumentRevision, blocks: [EditorBlockInput]) {

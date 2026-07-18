@@ -8,24 +8,24 @@ extension EditorModel {
     }
 
     @discardableResult
-    package func undo() -> Bool {
-        guard let transaction = undoStack.popLast() else { return false }
+    package func undo() -> EditorChange? {
+        guard let transaction = undoStack.popLast() else { return nil }
         document = transaction.beforeSnapshot
         selection = transaction.selectionBefore
         redoStack.append(transaction)
         assertDocumentValidInDebug()
-        return true
+        return transaction.change
     }
 
     @discardableResult
-    package func redo() -> Bool {
-        guard let transaction = redoStack.popLast() else { return false }
+    package func redo() -> EditorChange? {
+        guard let transaction = redoStack.popLast() else { return nil }
         document = transaction.afterSnapshot
         selection = transaction.selectionAfter
         undoStack.append(transaction)
         trimUndoStackToBudget()
         assertDocumentValidInDebug()
-        return true
+        return transaction.change
     }
 
     func trimUndoStackToBudget() {
