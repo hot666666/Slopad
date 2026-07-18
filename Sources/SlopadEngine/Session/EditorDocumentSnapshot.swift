@@ -5,8 +5,8 @@ import SlopadCoreModel
 /// A monotonically increasing committed content-or-structure token scoped to one
 /// `EditorSession`.
 ///
-/// A replacement Session, including `AppKitEditorViewController.resetDocument`, starts a
-/// new revision sequence at zero. This value is not a host database or storage revision.
+/// Replacing the Session starts a new revision sequence at zero. This value is not a host
+/// database or storage revision.
 public struct EditorDocumentRevision: RawRepresentable, Hashable, Codable, Comparable, Sendable {
     public let rawValue: UInt64
 

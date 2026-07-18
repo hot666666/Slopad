@@ -9,8 +9,8 @@ public struct EditorUpdate: Sendable {
     /// The Session-local document revision after a committed canonical mutation.
     ///
     /// This is `nil` for selection, layout, scrolling, and live IME composition updates.
-    /// Read `EditorSession.documentSnapshot`, or the AppKit controller's matching property,
-    /// synchronously when the complete value is needed.
+    /// Read the owning Session's `documentSnapshot` synchronously when the complete value
+    /// is needed.
     public let committedDocumentRevision: EditorDocumentRevision?
 
     // MARK: - Internal State
