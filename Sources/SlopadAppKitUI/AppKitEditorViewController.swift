@@ -121,6 +121,8 @@ public final class AppKitEditorViewController: NSViewController {
         let selectedRangeLowerBound: Int
         let selectedRangeUpperBound: Int
         let focusOffset: Int
+        let focusAffinity: TextAffinity
+        let navigationContext: TextNavigationContext?
         let measureRequest: BlockMeasureRequest
     }
 
@@ -158,6 +160,8 @@ public final class AppKitEditorViewController: NSViewController {
                     selectedRangeLowerBound: activeTextInput.selectedRange.lowerBound,
                     selectedRangeUpperBound: activeTextInput.selectedRange.upperBound,
                     focusOffset: activeTextInput.focusOffset,
+                    focusAffinity: activeTextInput.focusAffinity,
+                    navigationContext: activeTextInput.navigationContext,
                     measureRequest: activeTextInput.renderDescriptor.measureRequest
                 )
             }
@@ -1261,10 +1265,15 @@ extension AppKitEditorViewController {
 
     private func caretRect(for descriptor: EditorSessionActiveTextInputDescriptor) -> CGRect? {
         let request = descriptor.renderDescriptor.measureRequest
-        let position = TextPosition(blockID: request.blockID, offset: descriptor.focusOffset)
+        let position = TextPosition(
+            blockID: request.blockID,
+            offset: descriptor.focusOffset,
+            affinity: descriptor.focusAffinity
+        )
         guard
             let localRect = textLayouter.caretRect(
                 for: position,
+                navigationContext: descriptor.navigationContext,
                 in: descriptor.renderDescriptor
             )
         else { return nil }

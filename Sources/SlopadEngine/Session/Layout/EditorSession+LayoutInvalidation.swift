@@ -12,6 +12,7 @@ extension EditorSession {
         with textLayouter: any BlockTextLayoutProtocol
     ) -> EditorUpdate {
         self.textLayouter = textLayouter
+        textNavigationRuntimeContext = nil
         if let blockDrag {
             self.blockDrag = (
                 blockIDs: blockDrag.blockIDs,

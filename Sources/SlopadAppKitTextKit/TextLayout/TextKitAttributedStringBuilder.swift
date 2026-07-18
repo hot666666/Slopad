@@ -27,7 +27,11 @@ enum TextKitAttributedStringBuilder {
         let measuredText = request.text.isEmpty ? " " : request.text
         let attributed = NSAttributedString(
             string: measuredText,
-            attributes: textAttributes(font: baseFont, paragraph: paragraph)
+            attributes: textAttributes(
+                font: baseFont,
+                paragraph: paragraph,
+                languageIdentifier: style.languageIdentifier
+            )
         )
         let mutable = NSMutableAttributedString(attributedString: attributed)
         guard !request.text.isEmpty else { return mutable }
@@ -38,7 +42,8 @@ enum TextKitAttributedStringBuilder {
 
             var attributes = textAttributes(
                 font: inlineFont(from: baseFont, marks: run.marks),
-                paragraph: paragraph
+                paragraph: paragraph,
+                languageIdentifier: style.languageIdentifier
             )
             if let link = linkDestination(in: run.marks) {
                 attributes[.link] = link
@@ -52,13 +57,18 @@ enum TextKitAttributedStringBuilder {
 
     private static func textAttributes(
         font: NSFont,
-        paragraph: NSParagraphStyle
+        paragraph: NSParagraphStyle,
+        languageIdentifier: String?
     ) -> [NSAttributedString.Key: Any] {
-        [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph,
         ]
+        if let languageIdentifier, !languageIdentifier.isEmpty {
+            attributes[.languageIdentifier] = languageIdentifier
+        }
+        return attributes
     }
 
     static func baseFont(for kind: BlockKind, style: TextKitEditorStyle) -> NSFont {

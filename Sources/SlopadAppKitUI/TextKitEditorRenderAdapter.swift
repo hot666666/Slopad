@@ -14,9 +14,14 @@ extension TextKitBlockTextLayouter {
 
     func caretRect(
         for position: TextPosition,
+        navigationContext: TextNavigationContext? = nil,
         in descriptor: EditorTextRenderDescriptor
     ) -> EditorRect? {
-        caretRect(for: position, in: descriptor.measureRequest)
+        caretRect(
+            for: position,
+            navigationContext: navigationContext,
+            in: descriptor.measureRequest
+        )
     }
 
     func selectionRects(

@@ -67,3 +67,19 @@ public `updateEditorStyle(_:)` action. Operation time therefore includes pipelin
 engine backend replacement, full text-layout invalidation, and synchronized surface
 rendering. Forced AppKit display and TextKit drawing are recorded separately in the same
 frame.
+
+## Unicode Text Navigation
+
+Generated on 2026-07-17 for the TextKit2 Unicode navigation contract.
+
+- `appkit-unicode-navigation-summary-20260717.csv`: release-build aggregate metrics for
+  mixed Korean/English/Hebrew/emoji word navigation. One sweep varies total document
+  blocks at `100`, `1000`, and `10000`; a second holds the document at 100 blocks and
+  varies the active paragraph at `100`, `1000`, and `10000` graphemes.
+
+Each case measures 60 alternating native word-left/word-right operations. The long-text
+sweep keeps the caret near the paragraph end so grapheme/UTF-16 conversion and native
+segmentation costs are not hidden by a prefix-only position. Cold first-operation time is
+recorded separately from median and p95 steady-state input cost. The checked-in values are
+post-optimization: grapheme/UTF-16 boundary maps are built lazily per prepared request and
+then reused for constant-time conversion.

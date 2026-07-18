@@ -32,7 +32,8 @@ private struct DownstreamAppKitHost {
             lineHeightMultiple: 1.3,
             gutterWidth: 48,
             contentHorizontalPadding: 16,
-            blockIndentWidth: 22
+            blockIndentWidth: 22,
+            languageIdentifier: "en-US"
         )
         let controller = AppKitEditorViewController(
             blocks: [
@@ -60,7 +61,7 @@ private struct DownstreamAppKitHost {
         controller.blockChromeRenderer = HostChromeRenderer()
         _ = controller.editorStyle == style
         _ = controller.snapshot
-        _ = controller.currentViewport()
+        let viewport = controller.currentViewport()
 
         controller.renderAndSyncSurface(makeFirstResponder: false)
         controller.updateEditorStyle(
@@ -70,7 +71,8 @@ private struct DownstreamAppKitHost {
                 lineHeightMultiple: style.lineHeightMultiple,
                 gutterWidth: style.gutterWidth,
                 contentHorizontalPadding: style.contentHorizontalPadding,
-                blockIndentWidth: style.blockIndentWidth
+                blockIndentWidth: style.blockIndentWidth,
+                languageIdentifier: style.languageIdentifier
             )
         )
         controller.focus(blockID: blockID, offset: 0)
@@ -83,6 +85,22 @@ private struct DownstreamAppKitHost {
             makeFirstResponder: false,
             scrollSelectionIntoView: false
         )
+        let viewportTextCommands: [EditorInputEvent.Command] = [
+            .deleteWordBackward(viewport: viewport),
+            .moveWordLeft(viewport: viewport),
+            .moveWordRight(viewport: viewport),
+            .extendCharacterLeft(viewport: viewport),
+            .extendCharacterRight(viewport: viewport),
+            .extendWordLeft(viewport: viewport),
+            .extendWordRight(viewport: viewport),
+        ]
+        for command in viewportTextCommands {
+            _ = controller.handleInput(
+                .command(command),
+                makeFirstResponder: false,
+                scrollSelectionIntoView: false
+            )
+        }
         controller.scrollDocument(to: 0)
         controller.resetDocument(
             blocks: [

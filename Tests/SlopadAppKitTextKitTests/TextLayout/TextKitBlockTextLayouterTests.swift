@@ -136,6 +136,29 @@ struct TextKitBlockTextLayouterTests {
         #expect(first.range.lowerBound == 0)
     }
 
+    @Test("빈 문서 placeholder와 마지막 줄바꿈 sentinel을 줄 범위로 노출하지 않는다")
+    func lineFragmentsStayWithinCanonicalText() {
+        // Given
+        let provider = TextKitBlockTextLayouter()
+        let emptyRequest = makeMeasureRequest(text: "", width: 120)
+        let trailingNewlineRequest = makeMeasureRequest(text: "A\n", width: 120)
+
+        // When
+        let emptyFragments = provider.lineFragments(for: emptyRequest)
+        let trailingNewlineFragments = provider.lineFragments(for: trailingNewlineRequest)
+
+        // Then
+        #expect(!emptyFragments.isEmpty)
+        #expect(!trailingNewlineFragments.isEmpty)
+        #expect(emptyFragments.allSatisfy { $0.range == .point(0) })
+        #expect(
+            trailingNewlineFragments.allSatisfy {
+                $0.range.lowerBound >= 0
+                    && $0.range.upperBound <= trailingNewlineRequest.text.count
+            }
+        )
+    }
+
 }
 
 private func makeMeasureRequest(

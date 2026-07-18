@@ -83,6 +83,8 @@ In the frame-budget tables below, the 16.67ms threshold is always based on total
   subtree UI scenarios.
 - `Benchmarks/Baselines/appkit-ui-subtree-storage-compare-20260706.csv`: subtree UI
   side-by-side comparison.
+- `Benchmarks/Baselines/appkit-unicode-navigation-summary-20260717.csv`: document-size
+  and active-text-length sweeps for mixed-script TextKit navigation.
 
 Each scenario ran 60 measured frames at block counts `100`, `1000`, and `10000`.
 
@@ -104,6 +106,8 @@ Each scenario ran 60 measured frames at block counts `100`, `1000`, and `10000`.
   drags it near an outside block.
 - `style-change`: alternates geometry-affecting editor styles through the synchronized
   public AppKit action.
+- `unicode-navigation`: alternates backend-resolved native word-left/word-right movement
+  in mixed Korean, English, Hebrew, emoji, and combining-mark text.
 
 Subtree scenarios use the same subtree-size rule as the session benchmark.
 
@@ -187,6 +191,63 @@ appearance contract should avoid text-layout replacement entirely.
 
 The checked-in aggregate is
 `Benchmarks/Baselines/appkit-runtime-style-summary-20260717.csv`.
+
+## Unicode Navigation Follow-up
+
+Date: 2026-07-17
+
+Environment: macOS 27.0 (26A5378n), Xcode 27.0 (27A5194q), arm64, release build
+
+The `unicode-navigation` scenario alternates native word-left and word-right near the end
+of a mixed-script paragraph. The operation measurement includes Session routing,
+grapheme/UTF-16 conversion, TextKit2 linguistic navigation, result validation, and
+selection application. Identical request/style preparation is memoized, so steady-state
+movement does not rebuild the attributed storage or force full text layout on every key.
+Grapheme/UTF-16 boundary maps are also created lazily for the prepared request and reused
+for constant-time conversion after the cold operation.
+
+Document-size sweep with the default short mixed-script paragraph:
+
+| Blocks | Avg operation | Median operation | P95 operation | Cold first operation |
+| -----: | ------------: | ---------------: | ------------: | -------------------: |
+|    100 |       0.240ms |          0.198ms |       0.251ms |              3.127ms |
+|   1000 |       0.225ms |          0.202ms |       0.238ms |              1.969ms |
+|  10000 |       0.225ms |          0.200ms |       0.242ms |              1.868ms |
+
+The steady input cost is effectively independent of total document size in this sweep;
+10,000 blocks do not cause document-wide navigation work.
+
+Active-paragraph-length sweep at a fixed 100-block document:
+
+| Graphemes | Avg operation | Median operation | P95 operation | Cold first operation | Avg frame | P95 frame |
+| --------: | ------------: | ---------------: | ------------: | -------------------: | --------: | --------: |
+|       100 |       0.249ms |          0.210ms |       0.255ms |              2.243ms |  18.648ms |  19.597ms |
+|      1000 |       0.376ms |          0.324ms |       0.386ms |              4.037ms |  17.383ms |  18.160ms |
+|     10000 |       2.336ms |          1.658ms |       1.774ms |             43.981ms |  66.751ms |  66.844ms |
+
+This is not a zero-cost path. Steady navigation remains below 0.4ms at p95 through 1,000
+graphemes and reaches 1.774ms at p95 for 10,000 graphemes. The request-local index map
+reduced that 10,000-grapheme p95 from the pre-optimization 5.565ms by about 68%. The cold
+first movement still costs 43.981ms because it includes lazy index construction and native
+layout work. The same extreme paragraph spends about 61.122ms per frame in TextKit/AppKit
+drawing, which dominates its 66.751ms average frame. Cold preparation and long-fragment
+drawing therefore remain explicit performance risks even though steady conversion and
+ordinary short-block navigation are bounded.
+
+Example long-text command:
+
+```sh
+swift run -c release -Xswiftc -DSLOPAD_BENCHMARK_INSTRUMENTATION \
+  SlopadUIBenchmarkApp \
+  --scenario unicode-navigation \
+  --block-count 100 \
+  --active-text-length 10000 \
+  --frames 60 \
+  --output /tmp/slopad-unicode-navigation-10000.csv
+```
+
+The checked-in aggregate is
+`Benchmarks/Baselines/appkit-unicode-navigation-summary-20260717.csv`.
 
 ## Default UI Results
 

@@ -12,7 +12,7 @@ platform extension philosophy.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical
   document values.
 - `SlopadAppKitTextKit` provides the AppKit/TextKit2-based measurement, line fragment,
-  caret/selection rect, hit-test, and drawing backend.
+  caret/selection rect, hit-test, Unicode navigation, and drawing backend.
 - The default `BlockHeightIndexStorage` implementation is RBTree-backed. Array storage is
   not the default for structural-mutation-heavy paths.
 - The viewport-driven lazy initial layout baseline is in place. Large documents exact-
@@ -37,6 +37,13 @@ platform extension philosophy.
 - The AppKit path already routes native command selectors, IME/marked text, plain-text
   copy/cut/paste, undo/redo, scroll reveal, text selection, block selection, block
   selection rectangles, and selected-block drag/reorder through `EditorSession`.
+- Physical character movement and Unicode word movement/selection/deletion are resolved by
+  the active text backend against Session's effective text request; canonical selection,
+  block-boundary transitions, commands, and history remain engine-owned.
+- Bidirectional physical traversal keeps its layout-derived inline context in Session
+  runtime state only and invalidates it whenever the matching selection/request changes.
+- Custom hosts constructing word/character navigation commands pass their current
+  `EditorViewport`; the downstream fixture compile-checks those public command signatures.
 - The editing model already supports block split/merge, indent/outdent, block movement,
   block kind changes, todo toggling, snapshot-based undo/redo with a bounded budget, and
   markdown prefix shortcuts for common block kinds.
@@ -44,7 +51,9 @@ platform extension philosophy.
   TextKit backend consumes inline runs for measurement and rendering.
 - The AppKit UI benchmark harness covers scroll, native insert, composition, height
   expansion, block selection, block reorder, mixed interaction, subtree delete, and
-  subtree reorder plus runtime style replacement at 100/1000/10000 block scales.
+  subtree reorder plus runtime style replacement and Unicode navigation at
+  100/1000/10000 block scales. Unicode navigation also has a 100/1000/10000-grapheme
+  active-paragraph sweep.
 
 ## Current Product Gaps
 
@@ -60,6 +69,10 @@ needed before a host app can use the engine as a Notion/Craft-style editor surfa
 - Inline marks exist in the canonical model and TextKit rendering path, but there is no
   public `EditorInputEvent` command surface for toolbar/menu shortcuts such as bold,
   italic, code, link edit, or clear formatting.
+- Physical character and linguistic word navigation now use the text backend, but native
+  soft-line beginning/end commands still resolve to logical block start/end. A complete
+  bidi insertion contract must also decide whether a backend secondary insertion location
+  needs platform-neutral state beyond the current transient inline navigation context.
 - Block kind transforms exist inside `EditorModel`, and markdown prefix shortcuts exercise
   them, but product commands such as slash menu block transform, toolbar transform, and
   todo checkbox toggling still need host-facing input events.

@@ -54,7 +54,22 @@ public struct TextKitBlockTextLayouter: BlockTextLayoutProtocol, Sendable {
     {
         guard position.blockID == request.blockID else { return nil }
         return layoutContext.caretRect(
-            offset: position.offset,
+            position: position,
+            navigationContext: nil,
+            request: request,
+            style: style
+        ).map(EditorRect.init(cgRect:))
+    }
+
+    public func caretRect(
+        for position: TextPosition,
+        navigationContext: TextNavigationContext?,
+        in request: BlockMeasureRequest
+    ) -> EditorRect? {
+        guard position.blockID == request.blockID else { return nil }
+        return layoutContext.caretRect(
+            position: position,
+            navigationContext: navigationContext,
             request: request,
             style: style
         ).map(EditorRect.init(cgRect:))
@@ -72,12 +87,62 @@ public struct TextKitBlockTextLayouter: BlockTextLayoutProtocol, Sendable {
 
     public func textPosition(at point: EditorPoint, in request: BlockMeasureRequest) -> TextPosition
     {
-        let offset = layoutContext.closestTextOffset(
+        // Retain the legacy non-optional protocol surface. Native-aware callers should use
+        // textHitTest(at:in:) so a conversion failure is not mistaken for offset zero.
+        return textHitTest(at: point, in: request)?.position
+            ?? TextPosition(blockID: request.blockID, offset: 0)
+    }
+
+    public func textHitTest(
+        at point: EditorPoint,
+        in request: BlockMeasureRequest
+    ) -> TextHitTestResult? {
+        layoutContext.textHitTest(
             to: CGPoint(x: point.x, y: point.y),
             request: request,
             style: style
         )
-        return TextPosition(blockID: request.blockID, offset: offset)
+    }
+
+    public func navigate(
+        selection: TextSelection,
+        context: TextNavigationContext?,
+        direction: TextNavigationDirection,
+        destination: TextNavigationDestination,
+        extending: Bool,
+        in request: BlockMeasureRequest
+    ) -> TextNavigationResolution {
+        layoutContext.navigate(
+            selection: selection,
+            context: context,
+            direction: direction,
+            destination: destination,
+            extending: extending,
+            request: request,
+            style: style
+        )
+    }
+
+    public func wordRange(
+        containing position: TextPosition,
+        in request: BlockMeasureRequest
+    ) -> SlopadCoreModel.TextRange? {
+        layoutContext.wordRange(containing: position, request: request, style: style)
+    }
+
+    public func deletionRange(
+        for selection: TextSelection,
+        direction: TextNavigationDirection,
+        destination: TextNavigationDestination,
+        in request: BlockMeasureRequest
+    ) -> SlopadCoreModel.TextRange? {
+        layoutContext.deletionRange(
+            for: selection,
+            direction: direction,
+            destination: destination,
+            request: request,
+            style: style
+        )
     }
 
     // MARK: - Internal State

@@ -72,7 +72,7 @@ flowchart LR
     Session["EditorSession<br/>runtime orchestration"]
     Model["EditorModel<br/>canonical mutation"]
     Layout["BlockLayout<br/>derived geometry + visibility"]
-    Backend["SlopadAppKitTextKit<br/>TextKit2 fragment layout + geometry + drawing helpers"]
+    Backend["SlopadAppKitTextKit<br/>TextKit2 layout + geometry + Unicode navigation + drawing"]
     Snapshot["EditorSessionSnapshot<br/>host-facing projection"]
     Surface["AppKit surface<br/>canvas · focus · scroll · native input feedback"]
 
@@ -101,8 +101,18 @@ backend. The arrows describe collaboration, not shared ownership. In particular:
   Those values are projections of canonical state, not a second editor model.
 - `EditorSession` owns runtime orchestration, including the live composition overlay, and
   assembles snapshots. It does not absorb the canonical or layout owners.
+- Selection inside marked text is also a Session overlay in effective-text coordinates.
+  Update/snapshot projections may expose it while composition is live, but
+  `EditorModel.selection` remains in canonical document coordinates.
 - `SlopadAppKitUI` transports native marked-text callbacks and applies native feedback.
   Commit/cancel and selection-transition meaning still comes from `EditorSession`.
+- Native character/word selectors carry the current viewport into Session. Session supplies
+  the effective block request, the text backend resolves bidi/linguistic selection facts,
+  and Session alone applies selection, block transitions, deletion, and history semantics.
+- The backend may return transient inline navigation context when logical offset and
+  affinity alone do not identify the active visual caret in a bidirectional run. Session
+  retains it only for the exact selection and effective request; selection, content,
+  layout-backend, or request changes invalidate it.
 
 ## Default AppKit Path and Full Replacement
 
@@ -157,7 +167,7 @@ that keeps every geometry operation coherent.
 | `SlopadBlockLayout` | Effective content projection, visible order, y/height index, text-layout cache, invalidation, hit/reveal geometry, marker projection | Canonical mutation, command semantics, AppKit/TextKit2 types |
 | `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, snapshot/update assembly | Platform widgets, canonical storage duplication, backend implementation details |
 | `SlopadAppKitUI` | Native callback translation, native text pipeline integration, fragment/feedback drawing order, focus/scroll/canvas synchronization | Editor semantics, canonical state, arbitrary whole-text paint hooks |
-| `SlopadAppKitTextKit` | TextKit2 fragment layout, caret/selection geometry, text hit testing, attributed content and drawing helpers | Native view/input host, canonical editor state, Session orchestration |
+| `SlopadAppKitTextKit` | TextKit2 fragment layout, caret/selection geometry, text hit testing, bidi/Unicode word navigation, attributed content and drawing helpers | Native view/input host, canonical editor state, Session orchestration |
 | `SlopadCoreModel` | Cross-boundary vocabulary, backend seam values, canonical value definitions | Owner-specific caches, policies, projections, generic helpers |
 | `SlopadDataStructure` | Pure reusable storage algorithms | Editor, block, layout, or platform concepts |
 
@@ -179,8 +189,10 @@ scrolling.
 
 `EditorSession` owns the live composition overlay, and `BlockLayout` projects it into the
 effective block request. Text measurement, line fragments, hit testing, caret and
-selection rectangles, and drawing consume that same effective request and must agree. A
-high-level paint callback cannot safely replace only one part of this contract.
+selection rectangles, physical/linguistic navigation, and drawing consume that same
+effective request and must agree. A high-level paint callback cannot safely replace only
+one part of this contract. Any layout-derived navigation context is a disposable Session
+runtime projection, never canonical editor state.
 
 ### Compiler Boundaries Are Architecture Boundaries
 

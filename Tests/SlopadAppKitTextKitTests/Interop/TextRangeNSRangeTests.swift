@@ -23,4 +23,22 @@ struct TextRangeNSRangeTests {
         #expect(roundTripped == emojiRange)
         #expect(splitUTF16Offset.slopadTextRange(in: text) == nil)
     }
+
+    @Test("음수와 범위 밖 UTF-16 위치는 안전하게 거부한다")
+    func invalidUTF16RangesAreRejected() {
+        // Given
+        let text = "abc"
+        let invalidRanges = [
+            NSRange(location: -1, length: 0),
+            NSRange(location: 4, length: 0),
+            NSRange(location: 2, length: 2),
+            NSRange(location: NSNotFound, length: 1),
+        ]
+
+        // When
+        let converted = invalidRanges.map { $0.slopadTextRange(in: text) }
+
+        // Then
+        #expect(converted.allSatisfy { $0 == nil })
+    }
 }

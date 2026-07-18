@@ -55,10 +55,15 @@ struct AppKitTextInputDecorationRenderer {
         for descriptor: EditorSessionActiveTextInputDescriptor
     ) -> CGRect? {
         let request = descriptor.renderDescriptor.measureRequest
-        let position = TextPosition(blockID: request.blockID, offset: descriptor.focusOffset)
+        let position = TextPosition(
+            blockID: request.blockID,
+            offset: descriptor.focusOffset,
+            affinity: descriptor.focusAffinity
+        )
         guard
             let localRect = textLayouter.caretRect(
                 for: position,
+                navigationContext: descriptor.navigationContext,
                 in: descriptor.renderDescriptor
             )
         else { return nil }

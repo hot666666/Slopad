@@ -96,7 +96,7 @@ downstream fixture are outer-edge consumers and are omitted from the production 
 | Layer             | Owner                 | Responsibility                                                                                                                                                        |
 | ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Platform Layer    | `SlopadAppKitUI`      | Reusable AppKit callback, IME transport, native text pipeline, fragment/feedback drawing order, focus/scroll synchronization, and block chrome adapter.              |
-| Platform Layer    | `SlopadAppKitTextKit` | AppKit/TextKit2 backend for measurement, line fragments, caret/selection rects, hit testing, attributed content, and drawing helpers; it owns no native input host.   |
+| Platform Layer    | `SlopadAppKitTextKit` | AppKit/TextKit2 backend for measurement, line fragments, caret/selection rects, hit testing, Unicode navigation facts, attributed content, and drawing helpers; it owns no native input host. |
 | Engine Layer      | `SlopadEngine`        | Host-facing `EditorSession` facade. It accepts native-independent input, composes semantic and layout owners, and returns render, hit-test, reveal, and redraw facts. |
 | Engine Layer      | `SlopadEditorModel`   | Canonical document, selection, command, transaction, history, and semantic change owner.                                                                              |
 | Engine Layer      | `SlopadBlockLayout`   | Visible order, y/height geometry, invalidation, reveal/hit-test geometry, marker projection, text-layout cache, and block height index owner.                         |
@@ -113,7 +113,11 @@ combines their results and translates semantic changes into layout invalidation.
 - The engine owns editing meaning; platform adapters own native callback transport,
   drawing, focus, and scroll mechanisms.
 - A text backend keeps measurement, line fragments, hit testing, caret/selection rects,
-  and drawing coherent for the same effective text request; it is not a paint callback.
+  physical/linguistic navigation, and drawing coherent for the same effective text request;
+  it is not a paint callback.
+- Layout-derived bidi traversal context is retained only by `EditorSession` while its
+  selection and effective text request match; it is not part of the canonical document or
+  selection model.
 - SwiftPM dependencies and access levels enforce the architecture: `public` is a host
   contract, `package` is a real cross-target owner interface, and implementation details
   stay target-internal.

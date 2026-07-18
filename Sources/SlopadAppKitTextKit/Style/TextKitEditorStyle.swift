@@ -10,6 +10,8 @@ public struct TextKitEditorStyle: Hashable, Sendable {
     public var gutterWidth: Double
     public var contentHorizontalPadding: Double
     public var blockIndentWidth: Double
+    /// Optional BCP-47 language tag used by TextKit for locale-aware segmentation.
+    public var languageIdentifier: String?
 
     public init(
         fontName: String = "System",
@@ -17,7 +19,8 @@ public struct TextKitEditorStyle: Hashable, Sendable {
         lineHeightMultiple: Double = 1.25,
         gutterWidth: Double = 40,
         contentHorizontalPadding: Double = 14,
-        blockIndentWidth: Double = 20
+        blockIndentWidth: Double = 20,
+        languageIdentifier: String? = nil
     ) {
         self.fontName = fontName
         self.fontSize = fontSize
@@ -25,6 +28,7 @@ public struct TextKitEditorStyle: Hashable, Sendable {
         self.gutterWidth = gutterWidth
         self.contentHorizontalPadding = contentHorizontalPadding
         self.blockIndentWidth = blockIndentWidth
+        self.languageIdentifier = languageIdentifier
     }
 
     func textOrigin(depth: Int, kind: BlockKind) -> CGPoint {

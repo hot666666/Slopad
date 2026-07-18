@@ -95,6 +95,10 @@ currently carried by `TextKitEditorStyle` affects text geometry, so any style in
 requires full text-layout invalidation. Future paint-only values belong in a separate
 appearance contract and must not advance the text-layout revision.
 
+`TextKitEditorStyle` remains a platform-package configuration value. Its public font,
+spacing, chrome, and optional BCP-47 language settings use portable scalar/string values;
+the AppKit backend alone resolves them to `NSFont`, `NSColor`, and attributed-text keys.
+
 `session`, `scrollView`, raw canvas/native callback methods, native input inspection, and
 no-render batching helpers are not public host contracts. They use package access only
 when debug or benchmark targets require them; otherwise they remain internal or private.

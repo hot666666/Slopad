@@ -30,11 +30,13 @@ public final class EditorSession {
     var blockLayout: BlockLayout
     var textLayouter: any BlockTextLayoutProtocol
     var composition: TextComposition?
+    var compositionSelection: TextSelection?
     var blockDrag: (blockIDs: [BlockID], dropTarget: BlockDropTarget?, dropIndicator: EditorRect?)?
     var blockSelectionRectangle: (anchor: EditorPoint, current: EditorPoint)?
     var blockSelectionDragAnchor: BlockHitTestResult?
     var textSelectionDragAnchor: TextPosition?
     var textDoubleClickSelection: (blockID: BlockID, wordRange: TextRange)?
+    var textNavigationRuntimeContext: EditorSessionTextNavigationRuntimeContext?
     private var compositionRevisionCounter: Int
     #if SLOPAD_BENCHMARK_INSTRUMENTATION
         var benchmarkMetrics: EditorSessionBenchmarkMetrics
@@ -50,11 +52,14 @@ public final class EditorSession {
         self.editorModel = EditorModel(document: document, selection: selection)
         self.blockLayout = BlockLayout()
         self.textLayouter = textLayouter
+        self.composition = nil
+        self.compositionSelection = nil
         self.blockDrag = nil
         self.blockSelectionRectangle = nil
         self.blockSelectionDragAnchor = nil
         self.textSelectionDragAnchor = nil
         self.textDoubleClickSelection = nil
+        self.textNavigationRuntimeContext = nil
         self.compositionRevisionCounter = 0
         #if SLOPAD_BENCHMARK_INSTRUMENTATION
             self.benchmarkMetrics = EditorSessionBenchmarkMetrics()

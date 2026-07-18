@@ -24,7 +24,13 @@ extension SlopadCoreModel.TextRange {
 
 extension NSRange {
     public func slopadTextRange(in text: String) -> SlopadCoreModel.TextRange? {
+        let utf16Count = text.utf16.count
         guard
+            location != NSNotFound,
+            location >= 0,
+            length >= 0,
+            location <= utf16Count,
+            length <= utf16Count - location,
             let lowerUTF16 = text.utf16.index(
                 text.utf16.startIndex,
                 offsetBy: location,
@@ -36,7 +42,9 @@ extension NSRange {
                 limitedBy: text.utf16.endIndex
             ),
             let lower = String.Index(lowerUTF16, within: text),
-            let upper = String.Index(upperUTF16, within: text)
+            let upper = String.Index(upperUTF16, within: text),
+            (lower == text.endIndex || text.indices.contains(lower)),
+            (upper == text.endIndex || text.indices.contains(upper))
         else {
             return nil
         }
