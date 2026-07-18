@@ -17,6 +17,9 @@ extension EditorSession {
         _ command: EditorCommand
     ) -> (previousSelection: EditorSelection?, invalidation: EditorUpdateInvalidation) {
         let result = editorModel.apply(command)
+        if result != nil {
+            textNavigationRuntimeContext = nil
+        }
         let invalidation = markLayoutDirty(for: result?.change)
         return (
             previousSelection: result?.selectionBefore,
@@ -37,7 +40,7 @@ extension EditorSession {
     ) -> EditorUpdate {
         #if SLOPAD_BENCHMARK_INSTRUMENTATION
         return EditorUpdate(
-            selection: editorModel.selection,
+            selection: activeEditorSelection,
             previousSelection: previousSelection,
             composition: composition,
             history: historyState,
@@ -46,7 +49,7 @@ extension EditorSession {
         )
         #else
             return EditorUpdate(
-                selection: editorModel.selection,
+                selection: activeEditorSelection,
                 previousSelection: previousSelection,
                 composition: composition,
                 history: historyState,

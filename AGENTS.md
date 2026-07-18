@@ -34,6 +34,8 @@ Markdown is only import/export format or input shortcut syntax.
 ## Document Index
 
 - `README.md`: architecture map, package products, and AppKit UI package usage.
+- `docs/ARCHITECTURE.md`: detailed target graph, runtime ownership flow, platform
+  extension boundary, and architecture philosophy.
 - `ADR/`: durable architecture decision records.
 - `docs/ROADMAP.md`: completed milestones, next product/performance direction, and open
   risks.
@@ -67,11 +69,15 @@ sources of truth.
 - `BlockHeightIndexStorage`: owner of block height/y prefix-sum storage. The default
   implementation uses `PrefixSumRedBlackTree`.
 - `SlopadDataStructure`: pure data structures with no editor concepts.
-- `SlopadTextKit`: Apple TextKit2-based block text layout/rendering backend. It does not
+- `SlopadAppKitTextKit`: AppKit/TextKit2-based block text layout/rendering backend. It does not
   own native view/input host types or canonical editor state.
 - `SlopadAppKitUI`: reusable macOS AppKit adapter. It provides AppKit key/pointer/IME
-  callbacks, scroll/focus sync, TextKit drawing, and a block-kind chrome interface, but
-  it does not own engine semantics or canonical state.
+  callbacks, scroll/focus sync, TextKit2 fragment-based text drawing, and the
+  `AppKitBlockChromeRenderer` interface, but it does not own engine semantics or canonical
+  state. The chrome hook is clipped to its block frame and may draw backgrounds, borders,
+  gutters, and markers; text/text-selection/caret drawing remains adapter-owned and
+  follows the isolated chrome pass. Replacing the complete native text pipeline requires
+  a separate platform adapter with a coherent backend, not a high-level paint hook.
 - `SlopadDebugApp`: macOS reference/debug host. Debug-only state such as the debug HUD,
   scenario driver, screenshot capture, and state assertions stays out of the reusable UI
   package.
@@ -106,6 +112,12 @@ used by `Session` when it builds `BlockLayout` requests.
 - `TextLayout` does not mean height measurement only. It includes line fragments,
   caret/selection rects, and text hit-testing, so keep the `textLayouter` name and do not
   shrink it to `textMeasurer`.
+- A text backend is a coherent geometry contract, not an interchangeable paint callback.
+  `EditorSession` supplies live composition to `BlockLayout`'s effective content
+  projection; measurement, line fragments, hit testing, caret/selection geometry, and
+  drawing must then consume the same effective request. `AppKitBlockChromeRenderer` is
+  decoration only; complete native text pipeline replacement requires a separate adapter
+  and coherent backend.
 - An owner is the layer with final authority over the invariant and mutation rule for a
   meaning. A projection is a derived read/display/calculation result from canonical state
   and does not replace canonical state.
@@ -147,20 +159,29 @@ used by `Session` when it builds `BlockLayout` requests.
 - Separate ownership before fixing UI bugs: AppKit callback/drawing glue belongs to
   `SlopadAppKitUI`; semantic editing, selection, composition, hit-test, reveal, and layout
   orchestration belong behind `EditorSession`.
+- Treat public AppKit host actions as synchronized adapter boundaries. `resetDocument`
+  and `scrollDocument` must return with the relevant Session snapshot, canvas, viewport,
+  native input, focus, and observer state consistent. Programmatic scrolling must preserve
+  live marked text and responder ownership. Package-only no-render hooks are reserved for
+  development targets that explicitly perform the later render/sync step.
 
 ## Working Principles
 
 - Run `git status --short` before making changes so user-owned uncommitted work is
   visible.
-- Before structure/engine/UI package changes, read `README.md`, relevant ADRs,
-  `docs/ROADMAP.md`, and this file's terminology/decision criteria, then summarize the
-  responsibility boundary.
+- Before structure/engine/UI package changes, read `README.md`, `docs/ARCHITECTURE.md`,
+  relevant ADRs, `docs/ROADMAP.md`, and this file's terminology/decision criteria, then
+  summarize the responsibility boundary.
 - Judge from repository files and current source, not memory or prior conversation.
 - Decide which layer owns the change before editing.
-- Reflect layer-boundary changes only in durable sources: README, AGENTS, ADR, or ROADMAP.
+- Reflect layer-boundary changes only in durable sources: README,
+  `docs/ARCHITECTURE.md`, AGENTS, ADR, or ROADMAP.
 - Access control means `public` for host surface, `package` for real cross-target owner
   interfaces, and omitted access for target-internal defaults. Do not open a whole owner
   helper through `package extension`.
+- After changing the AppKit public/package boundary, build
+  `Fixtures/DownstreamAppKitHost` without weakening it through `@testable` or package
+  access.
 - Prefer existing local patterns and helper APIs.
 - Keep source/test filenames responsibility-revealing.
 - Do not revert user changes.
@@ -186,9 +207,11 @@ Default verification after code changes:
 
 ```sh
 swift test --quiet
+swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet
 swift build --product SlopadUIBenchmarkApp --quiet
+swift build --package-path Fixtures/DownstreamAppKitHost --product DownstreamAppKitHost --quiet
 git diff --check
 ```
 
