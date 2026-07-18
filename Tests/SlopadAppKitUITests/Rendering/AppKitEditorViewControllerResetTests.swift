@@ -7,6 +7,33 @@ import SlopadEngine
 @MainActor
 @Suite("AppKit 문서 reset")
 struct AppKitEditorViewControllerResetTests {
+    @Test("공개 reset은 새 baseline snapshot을 제공하고 committed update를 발행하지 않는다")
+    func replacesDocumentSnapshotBaseline() {
+        // Given
+        let oldID: BlockID = "old"
+        let newID: BlockID = "new"
+        let controller = AppKitEditorViewController(
+            blocks: [EditorBlockInput(id: oldID, content: BlockContent(text: "Old"))]
+        )
+        var committedRevisions: [EditorDocumentRevision] = []
+        controller.onUpdate = { update in
+            if let revision = update.committedDocumentRevision {
+                committedRevisions.append(revision)
+            }
+        }
+
+        // When
+        controller.resetDocument(
+            blocks: [EditorBlockInput(id: newID, content: BlockContent(text: "New"))]
+        )
+
+        // Then
+        #expect(committedRevisions.isEmpty)
+        #expect(controller.documentSnapshot.revision.rawValue == 0)
+        #expect(controller.documentSnapshot.blocks.map(\.id) == [newID])
+        #expect(controller.documentSnapshot.blocks.first?.content.text == "New")
+    }
+
     @Test("공개 reset은 반환 전에 새 문서와 native surface를 함께 동기화한다")
     func synchronizesSurface() throws {
         // Given

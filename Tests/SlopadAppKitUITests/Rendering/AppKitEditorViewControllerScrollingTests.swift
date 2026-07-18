@@ -7,6 +7,29 @@ import SlopadEngine
 @MainActor
 @Suite("AppKit programmatic scroll")
 struct AppKitEditorViewControllerScrollingTests {
+    @Test("공개 scroll은 canonical document revision을 변경하지 않는다")
+    func preservesDocumentSnapshot() {
+        // Given
+        let blockIDs = (0..<24).map { BlockID("block-\($0)") }
+        let controller = AppKitEditorViewController(
+            blocks: blockIDs.map { EditorBlockInput(id: $0) }
+        )
+        let before = controller.documentSnapshot
+        var committedRevisions: [EditorDocumentRevision] = []
+        controller.onUpdate = { update in
+            if let revision = update.committedDocumentRevision {
+                committedRevisions.append(revision)
+            }
+        }
+
+        // When
+        controller.scrollDocument(to: 480)
+
+        // Then
+        #expect(committedRevisions.isEmpty)
+        #expect(controller.documentSnapshot == before)
+    }
+
     @Test("공개 scroll은 반환 전에 viewport와 visible snapshot을 함께 동기화한다")
     func synchronizesVisibleSnapshot() throws {
         // Given

@@ -175,6 +175,11 @@ public final class AppKitEditorViewController: NSViewController {
     public var editorStyle: TextKitEditorStyle {
         textPipeline.style
     }
+    /// Complete committed canonical content, independent of the current viewport.
+    /// `resetDocument` replaces the Session and starts this snapshot's revision at zero.
+    public var documentSnapshot: EditorDocumentSnapshot {
+        session.documentSnapshot
+    }
     public private(set) var snapshot: EditorSessionSnapshot?
     public var blockChromeRenderer: any AppKitBlockChromeRenderer
     public var onSnapshotChanged: ((EditorSessionSnapshot) -> Void)?

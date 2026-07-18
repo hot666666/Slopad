@@ -24,6 +24,15 @@ public final class EditorSession {
         )
     }
 
+    /// Returns the complete committed canonical document without viewport or live
+    /// composition state.
+    public var documentSnapshot: EditorDocumentSnapshot {
+        EditorDocumentSnapshot(
+            revision: EditorDocumentRevision(rawValue: documentChangeRevision),
+            blocks: editorModel.document.editorBlockInputs
+        )
+    }
+
     // MARK: - State
 
     var editorModel: EditorModel
@@ -38,6 +47,8 @@ public final class EditorSession {
     var textDoubleClickSelection: (blockID: BlockID, wordRange: TextRange)?
     var textNavigationRuntimeContext: EditorSessionTextNavigationRuntimeContext?
     private var compositionRevisionCounter: Int
+    private var documentChangeRevision: UInt64
+    private var hasPendingDocumentChange: Bool
     #if SLOPAD_BENCHMARK_INSTRUMENTATION
         var benchmarkMetrics: EditorSessionBenchmarkMetrics
     #endif
@@ -61,6 +72,8 @@ public final class EditorSession {
         self.textDoubleClickSelection = nil
         self.textNavigationRuntimeContext = nil
         self.compositionRevisionCounter = 0
+        self.documentChangeRevision = 0
+        self.hasPendingDocumentChange = false
         #if SLOPAD_BENCHMARK_INSTRUMENTATION
             self.benchmarkMetrics = EditorSessionBenchmarkMetrics()
         #endif
@@ -94,5 +107,22 @@ public final class EditorSession {
 
     func recordCompositionRevision(_ revision: Int) {
         compositionRevisionCounter = max(compositionRevisionCounter, revision)
+    }
+
+    // MARK: - Committed Document Change
+
+    func recordDocumentChange() {
+        hasPendingDocumentChange = true
+    }
+
+    func takePendingDocumentRevision() -> EditorDocumentRevision? {
+        guard hasPendingDocumentChange else { return nil }
+        precondition(
+            documentChangeRevision < UInt64.max,
+            "Editor document change revision exhausted"
+        )
+        documentChangeRevision += 1
+        hasPendingDocumentChange = false
+        return EditorDocumentRevision(rawValue: documentChangeRevision)
     }
 }

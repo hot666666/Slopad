@@ -7,6 +7,10 @@ platform extension philosophy.
 ## Achieved Baseline
 
 - The headless `EditorSession` facade is the host-facing surface.
+- Committed content and structure changes publish a Session-local monotonic revision. A
+  host can read a viewport-independent full canonical `EditorDocumentSnapshot` on demand;
+  selection, scrolling, layout, and live IME composition do not publish persistence
+  changes.
 - The SwiftPM target split is complete. `SlopadEngine` composes `SlopadEditorModel` and
   `SlopadBlockLayout`; those two targets do not import each other.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical

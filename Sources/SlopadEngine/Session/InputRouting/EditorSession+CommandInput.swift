@@ -192,7 +192,10 @@ extension EditorSession {
 
     private func handleUndoInputCommand() -> EditorUpdate? {
         let previousSelection = editorModel.selection
-        guard editorModel.undo() else { return nil }
+        guard let change = editorModel.undo() else { return nil }
+        if change.documentChanged {
+            recordDocumentChange()
+        }
         textNavigationRuntimeContext = nil
         blockLayout.invalidateAllMeasurements()
         return makeEditorUpdate(
@@ -206,7 +209,10 @@ extension EditorSession {
 
     private func handleRedoInputCommand() -> EditorUpdate? {
         let previousSelection = editorModel.selection
-        guard editorModel.redo() else { return nil }
+        guard let change = editorModel.redo() else { return nil }
+        if change.documentChanged {
+            recordDocumentChange()
+        }
         textNavigationRuntimeContext = nil
         blockLayout.invalidateAllMeasurements()
         return makeEditorUpdate(

@@ -57,10 +57,16 @@ private struct DownstreamAppKitHost {
         style: TextKitEditorStyle
     ) {
         controller.onSnapshotChanged = { _ in }
-        controller.onUpdate = { _ in }
+        controller.onUpdate = { [weak controller] update in
+            guard let revision = update.committedDocumentRevision else { return }
+            let documentSnapshot = controller?.documentSnapshot
+            _ = documentSnapshot?.revision == revision
+            _ = documentSnapshot?.blocks
+        }
         controller.blockChromeRenderer = HostChromeRenderer()
         _ = controller.editorStyle == style
         _ = controller.snapshot
+        _ = controller.documentSnapshot
         let viewport = controller.currentViewport()
 
         controller.renderAndSyncSurface(makeFirstResponder: false)
