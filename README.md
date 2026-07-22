@@ -34,6 +34,45 @@ one supported host surface; downstream hosts normally customize only style and b
 chrome. A host uses the underlying products directly only for compatibility or when it
 builds a complete custom platform adapter.
 
+### AppKit Integration at a Glance
+
+The facade changes how an ordinary app assembles the default stack, not which layer owns
+runtime behavior:
+
+```mermaid
+flowchart LR
+    subgraph Before["Before - host assembles implementation products"]
+        BeforeHost["macOS host"]
+        BeforeEngine["SlopadEngine"]
+        BeforeUI["SlopadAppKitUI"]
+        BeforeTextKit["SlopadAppKitTextKit"]
+
+        BeforeHost --> BeforeEngine
+        BeforeHost --> BeforeUI
+        BeforeHost --> BeforeTextKit
+        BeforeUI --> BeforeEngine
+        BeforeUI --> BeforeTextKit
+    end
+
+    subgraph After["After - host enters through one curated facade"]
+        AfterHost["macOS host"]
+        Facade[["SlopadAppKit<br/>compile-time facade"]]
+        AfterUI["SlopadAppKitUI<br/>runtime adapter"]
+        AfterEngine["SlopadEngine<br/>semantic runtime"]
+        AfterTextKit["SlopadAppKitTextKit<br/>text backend"]
+
+        AfterHost -->|"one product + one import"| Facade
+        Facade --> AfterUI
+        Facade --> AfterEngine
+        AfterUI --> AfterEngine
+        AfterUI --> AfterTextKit
+    end
+```
+
+`SlopadAppKit` contains aliases and curated entry points; it creates no second controller,
+Session, document, or layout cache. The underlying products stay available for a host
+that intentionally implements a complete custom adapter.
+
 ## Demo
 
 <img src="Resources/demo.gif" alt="Slopad debug demo" width="720">
@@ -162,6 +201,18 @@ AppKit text system and synchronizes the resulting surface with the same preserva
 guarantees. Raw `EditorInputEvent`, `currentViewport`, and unsynchronized
 `...WithoutRendering` helpers are not public controller APIs. `EditorSession` still
 accepts raw engine input for hosts implementing a custom adapter.
+
+The ordinary host surface is organized by intent rather than by native callback type:
+
+| Host intent | Public AppKit contract | Owner behind the contract |
+| --- | --- | --- |
+| Create or replace a document | `init`, `resetDocument` | Controller synchronizes a new `EditorSession` and native surface |
+| Move programmatic focus | `focus(blockID:offset:)` | Session owns selection meaning; AppKit owns responder and reveal |
+| Perform a programmatic edit | `perform(_:)` with `AppKitEditorAction` | Controller supplies viewport; Session applies semantics |
+| Flush marked text before save/switch/close | `commitActiveComposition()` | Session commits; controller re-synchronizes canonical native text |
+| Change default text presentation | `updateEditorStyle(_:)` | One `AppKitTextSystem` replaces layout and drawing together |
+| Customize block decoration | `AppKitBlockChromeRenderer` | Host draws clipped chrome; adapter still draws text and feedback |
+| Observe and persist | `onUpdate`, `snapshot`, `documentSnapshot` | Render state and complete canonical state remain separate projections |
 
 Canonical persistence content is a separate public projection from render snapshots.
 `EditorUpdate.committedDocumentRevision` advances only for committed content or structure

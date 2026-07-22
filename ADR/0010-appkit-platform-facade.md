@@ -43,6 +43,28 @@ An ordinary host uses one product dependency and one import:
 import SlopadAppKit
 ```
 
+The facade is a compile-time assembly boundary, not a runtime owner:
+
+```mermaid
+flowchart LR
+    Host["Ordinary macOS host"]
+    Facade[["SlopadAppKit<br/>curated product and module"]]
+    Controller["AppKitEditorViewController<br/>runtime adapter owner"]
+    Engine["EditorSession<br/>semantic runtime owner"]
+    TextKit["SlopadAppKitTextKit<br/>coherent text backend"]
+    Canonical["EditorModel<br/>canonical document owner"]
+
+    Host -->|"one dependency and import"| Facade
+    Facade -->|"exports supported host vocabulary"| Controller
+    Facade -->|"exports document and observation vocabulary"| Engine
+    Controller -->|"synchronized input and surface effects"| Engine
+    Controller -->|"layout, drawing, native geometry"| TextKit
+    Engine -->|"commands and transactions"| Canonical
+```
+
+Only the arrows below `Controller` and `Engine` describe runtime work. `SlopadAppKit`
+does not wrap those objects, duplicate their state, or become another callback hop.
+
 `AppKitEditorViewController` owns one `AppKitTextSystem`. A single
 `AppKitEditorStyle` configures the TextKit2 layouter, fragment renderer, IME decoration
 geometry, and the style supplied to the chrome pass. Style replacement constructs and
@@ -52,9 +74,12 @@ feedback do not observe different configurations.
 The controller's ordinary public input boundary is synchronized and context-free:
 
 - `perform(_:)` accepts `AppKitEditorAction`; the controller captures its own current
-  viewport when the engine command needs geometry.
+  viewport when the engine command needs geometry. If native composition is live, the
+  controller commits and synchronizes it before applying the requested action.
 - `commitActiveComposition()` explicitly commits live marked text for persistence,
-  document switching, or lifecycle flushes without exposing raw IME input.
+  document switching, or lifecycle flushes without exposing raw IME input. The adapter
+  synchronizes back from the canonical result so Markdown shortcut normalization cannot
+  leave stale native text or selection.
 - `focus`, `resetDocument`, `scrollDocument`, `updateEditorStyle`, update observation,
   render snapshots, and `EditorDocumentSnapshot` remain public synchronized host
   contracts.
@@ -66,6 +91,16 @@ This does not narrow the headless extension boundary. `EditorSession.handleInput
 `SlopadEngine` for hosts implementing a complete custom adapter. The
 `SlopadAppKitUI`, `SlopadAppKitTextKit`, and `SlopadEngine` library products also remain
 available as advanced and compatibility seams.
+
+The source migration follows the ownership boundary:
+
+| Previous ordinary-host surface | New surface | Result |
+| --- | --- | --- |
+| Three product dependencies and imports | `SlopadAppKit` | Default stack assembly becomes library-owned |
+| `TextKitEditorStyle` | `AppKitEditorStyle` | Style names the complete platform configuration rather than one backend |
+| `handleInput(.command(...))` | `perform(AppKitEditorAction)` | Viewport and synchronized surface work remain adapter-owned |
+| `handleInput(.commitComposition)` | `commitActiveComposition()` | Session and native marked state settle as one public operation |
+| Controller `currentViewport()` | No ordinary-host equivalent | Raw geometry input is not host policy |
 
 ## Consequences
 
