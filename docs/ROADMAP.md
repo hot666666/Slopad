@@ -15,16 +15,20 @@ platform extension philosophy.
   `SlopadBlockLayout`; those two targets do not import each other.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical
   document values.
+- `SlopadAppKit` is the recommended ordinary macOS host product and import. It curates
+  the default AppKit controller, action, style, chrome, document, selection, update, and
+  snapshot vocabulary without becoming a runtime owner.
 - `SlopadAppKitTextKit` provides the AppKit/TextKit2-based measurement, line fragment,
   caret/selection rect, hit-test, Unicode navigation, and drawing backend.
 - The default `BlockHeightIndexStorage` implementation is RBTree-backed. Array storage is
   not the default for structural-mutation-heavy paths.
 - The viewport-driven lazy initial layout baseline is in place. Large documents exact-
   measure blocks around the viewport and start the rest from cached/estimated heights.
-- The `SlopadAppKitUI` package provides the first reusable AppKit view/controller/input/
-  render adapter surface for downstream macOS apps. It also handles edge autoscroll near
-  the top/bottom of the viewport during block selection rectangles, gutter block
-  selection, and block reorder.
+- The `SlopadAppKitUI` target provides the reusable AppKit view/controller/input/render
+  adapter assembled by `SlopadAppKit`. Its product remains available for advanced and
+  compatibility integrations. The adapter also handles edge autoscroll near the
+  top/bottom of the viewport during block selection rectangles, gutter block selection,
+  and block reorder.
 - AppKit block appearance customization is a chrome-only public contract. Host renderers
   can draw backgrounds, borders, gutters, and markers, while the adapter always owns
   TextKit2 fragment-based text drawing with effective live composition, followed by
@@ -33,8 +37,15 @@ platform extension philosophy.
   Reset updates the replacement document and native surface before returning; scroll
   updates viewport, visible snapshot, canvas, and observers without discarding live
   marked text or stealing focus. Unsynchronized batching helpers remain package-only.
-- `Fixtures/DownstreamAppKitHost` compile-checks the intended downstream API using regular
-  public imports only.
+- Programmatic default-adapter editing uses context-free `AppKitEditorAction` values via
+  `perform(_:)`; the controller supplies its current viewport when a command needs it.
+  `commitActiveComposition()` provides the explicit persistence/document-lifecycle flush.
+  Raw `EditorInputEvent` and `currentViewport` are not public controller APIs.
+- `AppKitEditorViewController` owns one coherent `AppKitTextSystem`. One
+  `AppKitEditorStyle` value configures TextKit2 geometry, drawing, IME decoration, and
+  block chrome style together, including during runtime replacement.
+- `Fixtures/DownstreamAppKitHost` compile-checks the intended downstream API with one
+  `SlopadAppKit` product dependency and one regular import.
 - [Architecture](ARCHITECTURE.md) records the compiler dependency graph, runtime owner
   flow, chrome-only AppKit extension boundary, and complete adapter/backend replacement
   path.
@@ -46,8 +57,9 @@ platform extension philosophy.
   block-boundary transitions, commands, and history remain engine-owned.
 - Bidirectional physical traversal keeps its layout-derived inline context in Session
   runtime state only and invalidates it whenever the matching selection/request changes.
-- Custom hosts constructing word/character navigation commands pass their current
-  `EditorViewport`; the downstream fixture compile-checks those public command signatures.
+- Custom adapters driving `EditorSession` directly still construct raw
+  `EditorInputEvent` values and pass `EditorViewport` where engine navigation commands
+  require it. That advanced Session surface is separate from the ordinary AppKit facade.
 - The editing model already supports block split/merge, indent/outdent, block movement,
   block kind changes, todo toggling, snapshot-based undo/redo with a bounded budget, and
   markdown prefix shortcuts for common block kinds.
@@ -66,8 +78,8 @@ needed before a host app can use the engine as a Notion/Craft-style editor surfa
 
 - Product hosts may eventually need platform behavior beyond the default AppKit policy.
   That is not a reason to expose raw key, IME, reveal, pointer, or paint hooks from
-  `SlopadAppKitUI`: each request must first be classified as a synchronized host action,
-  chrome/theme customization, engine input contract, or a separate custom adapter need.
+  `SlopadAppKit`: each request must first be classified as a synchronized host action,
+  chrome/style customization, engine input contract, or a separate custom adapter need.
 - Clipboard support is currently plain text. Structured block copy/paste, rich inline
   paste, and format negotiation with platform pasteboards are not yet modeled.
 - Inline marks exist in the canonical model and TextKit rendering path, but there is no
@@ -92,9 +104,14 @@ Priority order:
 
 - P0 - AppKit integration contract hardening
   - Stabilize the reusable AppKit host surface before adding large product features.
-  - Keep public visual customization limited to `TextKitEditorStyle` and
+  - Keep public visual customization limited to `AppKitEditorStyle` and
     `AppKitBlockChromeRenderer`; keep controller actions and observers synchronized host
     operations rather than arbitrary policy hooks.
+  - Keep `SlopadAppKit` as the ordinary one-product/one-import integration path while the
+    underlying Engine, UI adapter, and TextKit2 backend products remain advanced seams.
+  - Add new ordinary programmatic operations as context-free `AppKitEditorAction` cases
+    or explicit synchronized controller actions; do not return raw viewport ownership to
+    the host.
   - Keep native key mapping, IME transport, reveal, pointer routing, fragment drawing,
     focus, scroll, and surface synchronization inside the default adapter. Semantic
     editing behavior stays behind `EditorSession`.
@@ -102,8 +119,9 @@ Priority order:
     adapter with a coherent backend instead of widening the default high-level paint
     surface.
   - Contract regression gate: the downstream fixture continues to build without
-    `@testable`, package-only controller state, raw callbacks, or development hooks.
-  - Completion signal: downstream hosts can use synchronized actions plus chrome/theme
+    `@testable`, direct underlying-product dependencies, package-only controller state,
+    raw callbacks, or development hooks.
+  - Completion signal: downstream hosts can use synchronized actions plus chrome/style
     customization without reaching into native adapter internals, `EditorModel`,
     `BlockLayout`, layout cache, or canonical `Document`.
 
@@ -163,9 +181,10 @@ Priority order:
 
 - TextKit2 geometry is sensitive to OS/font/layout-manager behavior, so unit tests should
   focus on invariants.
-- If the AppKit UI package accumulates too many convenience features, platform adapter
-  code can start owning engine semantics again. The AppKit package should stay focused on
-  callback translation, drawing, and focus/scroll sync.
+- If the AppKit facade or UI adapter accumulates too many convenience features, platform
+  code can start owning engine semantics again. The facade should curate synchronized
+  host contracts, and the adapter should stay focused on callback translation, drawing,
+  and focus/scroll sync.
 - Treating block appearance customization as a partial text renderer would split the
   geometry pipeline and can duplicate or suppress text, selection, caret, or marked-text
   feedback. Complete replacement belongs in a separate adapter/backend pair.

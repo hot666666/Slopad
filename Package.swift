@@ -13,6 +13,10 @@ let package = Package(
             targets: ["SlopadEngine"]
         ),
         .library(
+            name: "SlopadAppKit",
+            targets: ["SlopadAppKit"]
+        ),
+        .library(
             name: "SlopadAppKitTextKit",
             targets: ["SlopadAppKitTextKit"]
         ),
@@ -64,6 +68,13 @@ let package = Package(
             dependencies: [
                 "SlopadEngine",
                 "SlopadAppKitTextKit",
+            ]
+        ),
+        .target(
+            name: "SlopadAppKit",
+            dependencies: [
+                "SlopadEngine",
+                "SlopadAppKitUI",
             ]
         ),
         .executableTarget(

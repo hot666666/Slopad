@@ -25,7 +25,7 @@ public struct AppKitBlockChromeRenderContext {
     public let depth: Int
     /// The block's frame in canvas/document coordinates and the maximum paint region.
     public let blockFrame: CGRect
-    public let style: TextKitEditorStyle
+    public let style: AppKitEditorStyle
     /// A context clipped by both the current dirty region and ``blockFrame``.
     ///
     /// The adapter saves and restores its graphics state around `drawChrome(_:)`.
@@ -39,7 +39,7 @@ public struct AppKitBlockChromeRenderContext {
         markerKind: BlockMarkerKind,
         depth: Int,
         blockFrame: CGRect,
-        style: TextKitEditorStyle,
+        style: AppKitEditorStyle,
         graphicsContext: CGContext,
         isActive: Bool,
         isSelected: Bool

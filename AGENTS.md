@@ -13,9 +13,10 @@ belong to the engine. Platform code supplies native input, drawing, and text lay
 backends.
 
 The current platform path is macOS AppKit + TextKit2. AppKit is an adapter, not the engine
-model. `SlopadAppKitUI` translates AppKit callbacks into engine input values and applies
-the layout/render/hit-test/reveal/redraw facts returned by `EditorSession` through AppKit
-drawing plus focus/scroll synchronization.
+model. `SlopadAppKit` is the recommended ordinary macOS host product/import and curates
+the default platform surface. Its `SlopadAppKitUI` component translates AppKit callbacks
+into engine input values and applies the layout/render/hit-test/reveal/redraw facts
+returned by `EditorSession` through AppKit drawing plus focus/scroll synchronization.
 
 SlopadEngine owns block document state and block identity, caret/text/block selection,
 keyboard/pointer/native command/IME composition semantics, command application,
@@ -39,7 +40,7 @@ Markdown is only import/export format or input shortcut syntax.
 
 ## Document Index
 
-- `README.md`: architecture map, package products, and AppKit UI package usage.
+- `README.md`: architecture map, package products, and AppKit platform facade usage.
 - `docs/ARCHITECTURE.md`: detailed target graph, runtime ownership flow, platform
   extension boundary, and architecture philosophy.
 - `ADR/`: durable architecture decision records.
@@ -75,6 +76,11 @@ sources of truth.
 - `BlockHeightIndexStorage`: owner of block height/y prefix-sum storage. The default
   implementation uses `PrefixSumRedBlackTree`.
 - `SlopadDataStructure`: pure data structures with no editor concepts.
+- `SlopadAppKit`: curated facade product/target for ordinary macOS hosts. It re-exposes
+  the supported controller, action, style, chrome, document, selection, update, and
+  snapshot vocabulary for the default AppKit + TextKit2 stack. It is not a new runtime or
+  semantic owner. `SlopadEngine`, `SlopadAppKitUI`, and `SlopadAppKitTextKit` remain
+  public advanced/compatibility products.
 - `SlopadAppKitTextKit`: AppKit/TextKit2-based block text layout/rendering backend. It does not
   own native view/input host types or canonical editor state.
 - `SlopadAppKitUI`: reusable macOS AppKit adapter. It provides AppKit key/pointer/IME
@@ -127,6 +133,15 @@ used by `Session` when it builds `BlockLayout` requests.
   drawing must then consume the same effective request. `AppKitBlockChromeRenderer` is
   decoration only; complete native text pipeline replacement requires a separate adapter
   and coherent backend.
+- `AppKitEditorViewController` owns one coherent `AppKitTextSystem`. One
+  `AppKitEditorStyle` value configures TextKit2 geometry, drawing, IME decoration, and the
+  style passed to chrome. Runtime replacement must build and publish that system as one
+  atomic configuration unit.
+- The ordinary AppKit controller accepts context-free `AppKitEditorAction` values through
+  `perform(_:)` and resolves its own viewport. `commitActiveComposition()` is the explicit
+  host lifecycle flush. Raw `EditorInputEvent` and the `currentViewport` controller method
+  are not public controller surface; `EditorInputEvent` and `EditorViewport` remain
+  available at the public `EditorSession` boundary for a complete custom adapter.
 - An owner is the layer with final authority over the invariant and mutation rule for a
   meaning. A projection is a derived read/display/calculation result from canonical state
   and does not replace canonical state.
@@ -169,9 +184,10 @@ used by `Session` when it builds `BlockLayout` requests.
   `SlopadAppKitUI`; semantic editing, selection, composition, hit-test, reveal, and layout
   orchestration belong behind `EditorSession`.
 - Treat public AppKit host actions as synchronized adapter boundaries. `resetDocument`
-  and `scrollDocument` must return with the relevant Session snapshot, canvas, viewport,
-  native input, focus, and observer state consistent. Programmatic scrolling must preserve
-  live marked text and responder ownership. Package-only no-render hooks are reserved for
+  `scrollDocument`, `perform(_:)`, and `commitActiveComposition()` must return with the
+  relevant Session snapshot, canvas, viewport, native input, focus, and observer state
+  consistent. Programmatic scrolling and composition flushes must preserve the specified
+  viewport and responder ownership. Package-only no-render hooks are reserved for
   development targets that explicitly perform the later render/sync step.
 
 ## Working Principles
@@ -216,6 +232,7 @@ Default verification after code changes:
 
 ```sh
 swift test --quiet
+swift build --product SlopadAppKit --quiet
 swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet

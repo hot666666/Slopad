@@ -30,8 +30,8 @@ struct AppKitEditorViewControllerDocumentSnapshotTests {
 
         // When
         let update = try #require(
-            controller.handleInput(
-                .command(.insertText("!")),
+            controller.perform(
+                .insertText("!"),
                 makeFirstResponder: false,
                 scrollSelectionIntoView: false
             )

@@ -28,9 +28,11 @@ two coherent edge pieces: a native UI adapter that translates platform callbacks
 engine inputs, and a text layout backend that satisfies `BlockTextLayoutProtocol`.
 
 The current project proves that path on macOS with AppKit UI and a TextKit2 text layout
-backend. The default `SlopadAppKitUI` path assembles those pieces and owns native text
-pipeline integration; downstream hosts normally customize only theme and block chrome.
-A host supplies a different pair only when it builds a complete custom platform adapter.
+backend. Ordinary macOS hosts depend on and import the `SlopadAppKit` platform facade.
+It assembles the default `SlopadAppKitUI` adapter and `SlopadAppKitTextKit` backend into
+one supported host surface; downstream hosts normally customize only style and block
+chrome. A host uses the underlying products directly only for compatibility or when it
+builds a complete custom platform adapter.
 
 ## Demo
 
@@ -54,13 +56,15 @@ SlopadEngine owns the semantic editor model:
 The engine does not own platform widgets. A host view receives native callbacks,
 translates them into engine input values, asks the engine for layout/render/hit-test
 facts, and applies those facts through its platform adapter. In the default macOS path,
-`SlopadAppKitUI` performs that work with `SlopadAppKitTextKit`.
+hosts enter through `SlopadAppKit`; `SlopadAppKitUI` performs that work with
+`SlopadAppKitTextKit`.
 
 ## Engine Architecture
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Layer - macOS"]
+        AppKit["SlopadAppKit<br/>ordinary host facade"]
         AppKitUI["SlopadAppKitUI<br/>AppKit adapter + native text pipeline integration"]
         AppKitTextKit["SlopadAppKitTextKit<br/>AppKit/TextKit2 backend"]
     end
@@ -76,6 +80,8 @@ flowchart TB
         DataStructure["SlopadDataStructure<br/>pure storage"]
     end
 
+    AppKit --> AppKitUI
+    AppKit --> Engine
     AppKitUI --> Engine
     AppKitUI --> AppKitTextKit
 
@@ -96,7 +102,8 @@ downstream fixture are outer-edge consumers and are omitted from the production 
 
 | Layer             | Owner                 | Responsibility                                                                                                                                                        |
 | ----------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Platform Layer    | `SlopadAppKitUI`      | Reusable AppKit callback, IME transport, native text pipeline, fragment/feedback drawing order, focus/scroll synchronization, and block chrome adapter.              |
+| Platform Layer    | `SlopadAppKit`        | Recommended ordinary macOS host product and import. It exposes the curated controller, action, style, chrome, selection, update, and snapshot vocabulary for the default stack. |
+| Platform Layer    | `SlopadAppKitUI`      | Reusable AppKit callback, IME transport, native text pipeline, fragment/feedback drawing order, focus/scroll synchronization, and block chrome adapter; also retained as an advanced/compatibility product. |
 | Platform Layer    | `SlopadAppKitTextKit` | AppKit/TextKit2 backend for measurement, line fragments, caret/selection rects, hit testing, Unicode navigation facts, attributed content, and drawing helpers; it owns no native input host. |
 | Engine Layer      | `SlopadEngine`        | Host-facing `EditorSession` facade. It accepts native-independent input, composes semantic and layout owners, and returns render, hit-test, reveal, and redraw facts. |
 | Engine Layer      | `SlopadEditorModel`   | Canonical document, selection, command, transaction, history, and semantic change owner.                                                                              |
@@ -124,6 +131,8 @@ combines their results and translates semantic changes into layout invalidation.
   stay target-internal.
 - Public AppKit operations are atomic adapter boundaries whose Session snapshot,
   viewport, canvas, native input, focus, and observer effects agree when they return.
+  Ordinary hosts submit context-free `AppKitEditorAction` values; the controller supplies
+  adapter-owned viewport facts when an engine command needs them.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for runtime ownership, extension versus
 replacement boundaries, and the change decision checklist.
@@ -133,20 +142,26 @@ On macOS, host-defined block appearance is deliberately limited to chrome throug
 `SlopadAppKitUI` clips and isolates that hook, then always performs its TextKit2
 fragment-based text drawing plus text-selection and caret feedback. Live marked text is
 included in the effective content sent through the same adapter-owned text drawing path.
+`AppKitEditorViewController` owns one coherent `AppKitTextSystem`; one
+`AppKitEditorStyle` configures TextKit2 geometry, text drawing, IME decoration, and the
+style passed to block chrome together.
 
 A host that needs to replace the entire native text pipeline must build its own platform
 adapter around `EditorSession`. That adapter must keep layout, drawing, hit testing,
 caret/selection geometry, and native text geometry coherent. The high-level chrome hook
 is not a partial text-renderer replacement point.
 
-Public controller mutations are synchronized host operations. `resetDocument` returns
-only after the replacement Session snapshot, canvas, native text surface, responder state,
-and snapshot observer are synchronized. `scrollDocument` returns only after the viewport,
-visible snapshot, canvas, and snapshot observer are synchronized, while preserving live
-marked text, native selection, and current responder ownership. `updateEditorStyle`
-atomically replaces the AppKit text layout/drawing pipeline and synchronizes the resulting
-surface with the same preservation guarantees. Unsynchronized `...WithoutRendering`
-helpers are package-only development hooks.
+Public controller mutations are synchronized host operations. `perform(_:)` accepts
+`AppKitEditorAction`, and `commitActiveComposition()` provides the explicit host lifecycle
+flush without exposing raw IME events. `resetDocument` returns only after the replacement
+Session snapshot, canvas, native text surface, responder state, and snapshot observer are
+synchronized. `scrollDocument` returns only after the viewport, visible snapshot, canvas,
+and snapshot observer are synchronized, while preserving live marked text, native
+selection, and current responder ownership. `updateEditorStyle` atomically replaces the
+AppKit text system and synchronizes the resulting surface with the same preservation
+guarantees. Raw `EditorInputEvent`, `currentViewport`, and unsynchronized
+`...WithoutRendering` helpers are not public controller APIs. `EditorSession` still
+accepts raw engine input for hosts implementing a custom adapter.
 
 Canonical persistence content is a separate public projection from render snapshots.
 `EditorUpdate.committedDocumentRevision` advances only for committed content or structure
@@ -156,8 +171,20 @@ snapshot contains every canonical block in depth-first preorder and excludes sel
 viewport, layout, scroll, and live IME composition. `visibleBlocks` is never a persistence
 source. Revisions are monotonic only within one Session and are not host storage revisions.
 
-SwiftPM keeps these responsibilities in separate targets. See `Package.swift` for the
-exact product and target list.
+SwiftPM keeps these responsibilities in separate targets. An ordinary macOS target needs
+one product dependency and one import:
+
+```swift
+.product(name: "SlopadAppKit", package: "Slopad")
+```
+
+```swift
+import SlopadAppKit
+```
+
+`SlopadAppKitUI`, `SlopadAppKitTextKit`, and `SlopadEngine` remain public products for
+existing integrations and advanced custom-adapter work. See `Package.swift` for the exact
+product and target list.
 
 ## Development Targets
 
@@ -195,6 +222,7 @@ surface. It must not rely on `@testable` imports or package-only APIs.
 ```sh
 swift package dump-package
 swift test --quiet
+swift build --product SlopadAppKit --quiet
 swift build --product SlopadAppKitTextKit --quiet
 swift build --product SlopadAppKitUI --quiet
 swift build --product SlopadDebugApp --quiet

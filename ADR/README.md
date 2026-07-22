@@ -17,3 +17,4 @@ the decisions that led to it.
 - [0007 - Provide AppKit UI as a reusable adapter package](0007-appkit-ui-adapter-package.md)
 - [0008 - Keep EditorSession confined to one executor](0008-keep-editor-session-executor-confined.md)
 - [0009 - Publish committed full-document snapshots on demand](0009-publish-committed-document-snapshots.md)
+- [0010 - Provide an AppKit platform facade](0010-appkit-platform-facade.md)

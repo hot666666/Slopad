@@ -7,26 +7,6 @@ import SlopadEngine
 
 @MainActor
 public final class AppKitEditorViewController: NSViewController {
-    // MARK: - Private Types
-
-    @MainActor
-    private struct TextPipeline {
-        let style: TextKitEditorStyle
-        let textLayouter: TextKitBlockTextLayouter
-        let textRenderer: TextKitBlockRenderer
-        let textInputDecorationRenderer: AppKitTextInputDecorationRenderer
-
-        init(style: TextKitEditorStyle) {
-            let textLayouter = TextKitBlockTextLayouter(style: style)
-            self.style = style
-            self.textLayouter = textLayouter
-            self.textRenderer = TextKitBlockRenderer(style: style)
-            self.textInputDecorationRenderer = AppKitTextInputDecorationRenderer(
-                textLayouter: textLayouter
-            )
-        }
-    }
-
     private enum UX {
         static let initialViewSize = NSSize(width: 920, height: 680)
         static let minimumViewportDimension: CGFloat = 1
@@ -172,8 +152,8 @@ public final class AppKitEditorViewController: NSViewController {
 
     // MARK: - Public State
 
-    public var editorStyle: TextKitEditorStyle {
-        textPipeline.style
+    public var editorStyle: AppKitEditorStyle {
+        textSystem.style
     }
     /// Complete committed canonical content, independent of the current viewport.
     /// `resetDocument` replaces the Session and starts this snapshot's revision at zero.
@@ -198,15 +178,15 @@ public final class AppKitEditorViewController: NSViewController {
 
     // MARK: - Private State
 
-    private var textPipeline: TextPipeline
+    private var textSystem: AppKitTextSystem
     private var textLayouter: TextKitBlockTextLayouter {
-        textPipeline.textLayouter
+        textSystem.textLayouter
     }
     private var textRenderer: TextKitBlockRenderer {
-        textPipeline.textRenderer
+        textSystem.textRenderer
     }
     private var textInputDecorationRenderer: AppKitTextInputDecorationRenderer {
-        textPipeline.textInputDecorationRenderer
+        textSystem.textInputDecorationRenderer
     }
     private lazy var editorCanvasView = AppKitEditorCanvasView(handler: self)
     private lazy var activeInputController = AppKitActiveInputController(owner: self)
@@ -235,16 +215,16 @@ public final class AppKitEditorViewController: NSViewController {
     public init(
         blocks: [EditorBlockInput],
         selection: EditorSelection? = nil,
-        style: TextKitEditorStyle = TextKitEditorStyle(),
+        style: AppKitEditorStyle = AppKitEditorStyle(),
         blockChromeRenderer: any AppKitBlockChromeRenderer = AppKitDefaultBlockChromeRenderer(),
         focusOnAppear: Bool = false
     ) {
-        let textPipeline = TextPipeline(style: style)
-        self.textPipeline = textPipeline
+        let textSystem = AppKitTextSystem(style: style)
+        self.textSystem = textSystem
         self.session = EditorSession(
             blocks: blocks,
             selection: selection,
-            textLayouter: textPipeline.textLayouter
+            textLayouter: textSystem.textLayouter
         )
         self.blockChromeRenderer = blockChromeRenderer
         self.focusOnAppear = focusOnAppear
@@ -303,12 +283,12 @@ public final class AppKitEditorViewController: NSViewController {
     ///
     /// The operation synchronizes the Session snapshot and canvas before returning while
     /// preserving live marked text, native selection, viewport, and responder ownership.
-    public func updateEditorStyle(_ style: TextKitEditorStyle) {
+    public func updateEditorStyle(_ style: AppKitEditorStyle) {
         guard style != editorStyle else { return }
 
-        let replacementPipeline = TextPipeline(style: style)
-        _ = session.replaceTextLayoutBackend(with: replacementPipeline.textLayouter)
-        textPipeline = replacementPipeline
+        let replacementTextSystem = AppKitTextSystem(style: style)
+        _ = session.replaceTextLayoutBackend(with: replacementTextSystem.textLayouter)
+        textSystem = replacementTextSystem
         renderCanvasPreservingNativeSurface(
             nativeStateIsAuthoritative: hasActiveNativeMarkedText
         )
@@ -362,8 +342,43 @@ public final class AppKitEditorViewController: NSViewController {
         )
     }
 
+    /// Performs one programmatic editor action and synchronizes the native surface before
+    /// returning. Viewport-bearing engine commands use the adapter's current viewport.
     @discardableResult
-    public func handleInput(
+    public func perform(
+        _ action: AppKitEditorAction,
+        makeFirstResponder: Bool = true,
+        scrollSelectionIntoView: Bool = true
+    ) -> EditorUpdate? {
+        handleInput(
+            action.inputEvent(viewport: currentViewport()),
+            makeFirstResponder: makeFirstResponder,
+            scrollSelectionIntoView: scrollSelectionIntoView
+        )
+    }
+
+    /// Commits live marked text while preserving viewport and responder ownership.
+    ///
+    /// The committed update is delivered to `onUpdate` before this method returns, so the
+    /// matching complete value can be read immediately from `documentSnapshot`.
+    @discardableResult
+    public func commitActiveComposition() -> EditorUpdate? {
+        let shouldKeepFirstResponder = view.window?.firstResponder === editorCanvasView
+        if hasActiveNativeMarkedText {
+            return activeInputController.unmarkText(
+                makeFirstResponder: shouldKeepFirstResponder
+            )
+        }
+        guard snapshot?.composition != nil else { return nil }
+        return handleInput(
+            .commitComposition,
+            makeFirstResponder: shouldKeepFirstResponder,
+            scrollSelectionIntoView: false
+        )
+    }
+
+    @discardableResult
+    package func handleInput(
         _ inputEvent: EditorInputEvent,
         makeFirstResponder: Bool = true,
         scrollSelectionIntoView: Bool = true
@@ -391,7 +406,7 @@ public final class AppKitEditorViewController: NSViewController {
         scrollDocument(to: CGFloat(max(0, y)), visibleBounds: currentViewportBounds())
     }
 
-    public func currentViewport() -> EditorViewport {
+    package func currentViewport() -> EditorViewport {
         let bounds = currentViewportBounds()
         let width = max(Double(bounds.width), Double(UX.minimumViewportDimension))
         let height = max(Double(bounds.height), Double(UX.minimumViewportDimension))

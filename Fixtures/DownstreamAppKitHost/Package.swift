@@ -14,9 +14,7 @@ let package = Package(
         .executableTarget(
             name: "DownstreamAppKitHost",
             dependencies: [
-                .product(name: "SlopadAppKitTextKit", package: "Slopad"),
-                .product(name: "SlopadAppKitUI", package: "Slopad"),
-                .product(name: "SlopadEngine", package: "Slopad"),
+                .product(name: "SlopadAppKit", package: "Slopad")
             ]
         )
     ]

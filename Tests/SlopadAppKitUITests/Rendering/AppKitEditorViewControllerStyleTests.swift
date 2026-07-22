@@ -1,7 +1,6 @@
 import AppKit
 import Testing
 
-import SlopadAppKitTextKit
 import SlopadEngine
 @testable import SlopadAppKitUI
 
@@ -12,13 +11,13 @@ struct AppKitEditorViewControllerStyleTests {
     func synchronizesTextPipeline() throws {
         // Given
         let blockID: BlockID = "block"
-        let initialStyle = TextKitEditorStyle(
+        let initialStyle = AppKitEditorStyle(
             fontSize: 12,
             lineHeightMultiple: 1.1,
             gutterWidth: 30,
             contentHorizontalPadding: 8
         )
-        let replacementStyle = TextKitEditorStyle(
+        let replacementStyle = AppKitEditorStyle(
             fontSize: 28,
             lineHeightMultiple: 1.4,
             gutterWidth: 72,
@@ -92,8 +91,8 @@ struct AppKitEditorViewControllerStyleTests {
         let window = makeWindow(controller: controller)
         controller.renderAndSyncSurface(makeFirstResponder: false)
         #expect(window.makeFirstResponder(controller.canvasView))
-        _ = controller.handleInput(
-            .command(.insertText("X")),
+        _ = controller.perform(
+            .insertText("X"),
             makeFirstResponder: false,
             scrollSelectionIntoView: false
         )
@@ -110,7 +109,7 @@ struct AppKitEditorViewControllerStyleTests {
         let viewport = controller.currentViewport()
         var deliveredSnapshots: [EditorSessionSnapshot] = []
         controller.onSnapshotChanged = { deliveredSnapshots.append($0) }
-        let replacementStyle = TextKitEditorStyle(
+        let replacementStyle = AppKitEditorStyle(
             fontSize: 18,
             lineHeightMultiple: 1.3,
             gutterWidth: 52
@@ -150,7 +149,7 @@ struct AppKitEditorViewControllerStyleTests {
         #expect(window.makeFirstResponder(externalResponder))
 
         // When
-        controller.updateEditorStyle(TextKitEditorStyle(fontSize: 20))
+        controller.updateEditorStyle(AppKitEditorStyle(fontSize: 20))
 
         // Then
         #expect(window.firstResponder === externalResponder)
@@ -159,7 +158,7 @@ struct AppKitEditorViewControllerStyleTests {
     @Test("동일 스타일 변경 요청은 surface를 다시 발행하지 않는다")
     func ignoresIdenticalStyle() throws {
         // Given
-        let style = TextKitEditorStyle(fontSize: 17)
+        let style = AppKitEditorStyle(fontSize: 17)
         let controller = AppKitEditorViewController(
             blocks: [EditorBlockInput(id: "block", content: BlockContent(text: "Text"))],
             style: style
@@ -180,7 +179,7 @@ struct AppKitEditorViewControllerStyleTests {
 
 @MainActor
 private final class StyleRecordingChromeRenderer: AppKitBlockChromeRenderer {
-    private(set) var styles: [TextKitEditorStyle] = []
+    private(set) var styles: [AppKitEditorStyle] = []
 
     func drawChrome(_ context: AppKitBlockChromeRenderContext) {
         styles.append(context.style)

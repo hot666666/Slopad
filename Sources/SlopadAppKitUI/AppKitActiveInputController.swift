@@ -204,14 +204,19 @@ final class AppKitActiveInputController {
         requestRender(makeFirstResponder: true, preserveNativeSurface: true)
     }
 
-    func unmarkText() {
+    @discardableResult
+    func unmarkText(makeFirstResponder: Bool = true) -> EditorUpdate? {
         markedRange = nil
         markedReplacementRange = nil
         markedDocumentText = nil
         sessionSelectedRange = nil
-        owner?.handleNativeInputEvent(.commitComposition)
+        let update = owner?.handleNativeInputEvent(.commitComposition)
         syncSelectionFromNativeSurface()
-        requestRender(makeFirstResponder: true, preserveNativeSurface: true)
+        requestRender(
+            makeFirstResponder: makeFirstResponder,
+            preserveNativeSurface: true
+        )
+        return update
     }
 
     func replaceText(
