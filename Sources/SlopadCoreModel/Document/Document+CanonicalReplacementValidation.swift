@@ -3,6 +3,7 @@
 package enum CanonicalDocumentReplacementValidationError: Error, Hashable, Sendable {
     case emptyDocument
     case duplicateBlockID(BlockID)
+    case invalidContent(blockID: BlockID)
     case missingParent(blockID: BlockID, parentID: BlockID)
     case cycleDetected(BlockID)
     case noncanonicalDepthFirstOrder
@@ -27,38 +28,30 @@ extension Document {
         }
 
         for input in blockInputs {
+            guard input.content.isCanonical else {
+                throw .invalidContent(blockID: input.id)
+            }
             if let parentID = input.parentID, records[parentID] == nil {
                 throw .missingParent(blockID: input.id, parentID: parentID)
             }
         }
 
-        enum VisitState {
-            case visiting
-            case visited
-        }
-        var visitStates: [BlockID: VisitState] = [:]
-
-        func visitParentChain(
-            from blockID: BlockID
-        ) throws(CanonicalDocumentReplacementValidationError) {
-            switch visitStates[blockID] {
-            case .visiting:
-                throw .cycleDetected(blockID)
-            case .visited:
-                return
-            case nil:
-                break
-            }
-
-            visitStates[blockID] = .visiting
-            if let parentID = records[blockID]?.parentID {
-                try visitParentChain(from: parentID)
-            }
-            visitStates[blockID] = .visited
-        }
-
+        var visitedParentChains: Set<BlockID> = []
+        visitedParentChains.reserveCapacity(blockInputs.count)
         for input in blockInputs {
-            try visitParentChain(from: input.id)
+            guard !visitedParentChains.contains(input.id) else { continue }
+
+            var path: [BlockID] = []
+            var pathIndexes: [BlockID: Int] = [:]
+            var currentID: BlockID? = input.id
+            while let blockID = currentID, !visitedParentChains.contains(blockID) {
+                guard pathIndexes.updateValue(path.count, forKey: blockID) == nil else {
+                    throw .cycleDetected(blockID)
+                }
+                path.append(blockID)
+                currentID = records[blockID]?.parentID
+            }
+            visitedParentChains.formUnion(path)
         }
 
         var rootBlockIDs: [BlockID] = []

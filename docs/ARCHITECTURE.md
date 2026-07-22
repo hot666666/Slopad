@@ -241,7 +241,7 @@ sequenceDiagram
     AppKit->>Session: synchronized forwarding
     Session->>Session: exact CAS(epoch + revision + selection)
     Session->>Model: validate and replace full post-image
-    alt empty, duplicate, missing parent, cycle, non-DFS, or invalid selection
+    alt empty, duplicate, invalid content, missing parent, cycle, non-DFS, or invalid selection
         Model-->>Host: typed error; state unchanged
     else exact document and selection no-op
         Model-->>Host: nil; no history, revision, callback, or render
@@ -271,12 +271,20 @@ Selection projection is canonical, not viewport-derived:
 - caret and inactive selections produce `.none` selected content while the exact selection
   remains present in the context and source CAS.
 
+These context and selected-content values are Session-produced output projections. Their
+initializers are not public, and selected-content values are `Encodable` but not
+`Decodable`; a host can send the projection to a reviewer without manufacturing or
+decoding unchecked source/document/selection combinations. `EditorDocumentPatch` remains
+the public host-constructed input.
+
 The full post-image is validated before mutation: it must be non-empty, have unique IDs,
-reference existing parents, be acyclic, already use canonical parent-before-child DFS
-order, and contain a valid selection. `EditorModel` installs it as one snapshot-backed
-transaction. Because an external post-image can replace content and canonical visible
-order while retaining block IDs, Session starts a fresh derived `BlockLayout` state before
-the next synchronized render.
+contain canonical `BlockContent` marks for the current text, reference existing parents,
+be acyclic, already use canonical parent-before-child DFS order, and contain a valid
+selection. Validation and invariant preorder traversal use iterative stacks, so hierarchy
+depth does not turn a public typed-error boundary into a process stack trap. `EditorModel`
+installs valid input as one snapshot-backed transaction. Because an external post-image
+can replace content and canonical visible order while retaining block IDs, Session starts
+a fresh derived `BlockLayout` state before the next synchronized render.
 
 ### Snapshot Purpose Boundary
 

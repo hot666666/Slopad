@@ -195,6 +195,8 @@ extension EditorDocumentTransactionError {
             self = .emptyDocument
         case .duplicateBlockID(let blockID):
             self = .duplicateBlockID(blockID)
+        case .invalidContent(let blockID):
+            self = .invalidContent(blockID: blockID)
         case .missingParent(let blockID, let parentID):
             self = .missingParent(blockID: blockID, parentID: parentID)
         case .cycleDetected(let blockID):

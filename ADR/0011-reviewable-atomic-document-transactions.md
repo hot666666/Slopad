@@ -51,14 +51,21 @@ Selected content is a canonical projection:
 - caret and inactive selections return no selected content while remaining part of the
   exact context and source.
 
+Context and selected-content values are output-only Session projections. Their
+initializers are not public. Selected-content values conform to `Encodable` for review
+transport but not `Decodable`, so a host cannot decode unchecked projection combinations.
+`EditorDocumentPatch` remains the public host-constructed input.
+
 The patch is a full post-image rather than public operation objects. Before mutation,
-`SlopadCoreModel` validates non-empty input, unique IDs, parent existence, absence of
-cycles, canonical parent-before-child DFS order, and selection bounds. Public failures are
-typed errors, not preconditions. `EditorModel` installs a valid changed post-image and
-selection as one snapshot-backed transaction. Session publishes one committed revision
-and one update. One undo/redo step restores the whole before/after state. An exact
-document-and-selection no-op returns `nil` without history, revision, callback, layout, or
-render work.
+`SlopadCoreModel` validates non-empty input, unique IDs, canonical `BlockContent` marks,
+parent existence, absence of cycles, canonical parent-before-child DFS order, and
+selection bounds. Public failures are typed errors, not preconditions. Parent-chain and
+document invariant preorder validation use iterative stacks so an unbounded public
+post-image cannot overflow the process stack. `EditorModel` installs a valid changed
+post-image and selection as one snapshot-backed transaction. Session publishes one
+committed revision and one update. One undo/redo step restores the whole before/after
+state. An exact document-and-selection no-op returns `nil` without history, revision,
+callback, layout, or render work.
 
 `AppKitEditorViewController` only adds synchronized forwarding: after Session success it
 publishes one `onUpdate`, then converges render, native text, selection, focus, and reveal
@@ -76,6 +83,9 @@ ordinary host retains the one-product, one-import contract.
   re-query after cursor movement, document changes, reset, or composition commit.
 - Full post-image projection and validation are O(document size). This is appropriate for
   reviewed assistant transactions, not ordinary per-keystroke input.
+- Publicly mutable `BlockContent` is accepted only when its marks still equal canonical
+  normalization for the current text; otherwise apply returns `invalidContent(blockID:)`
+  without mutation.
 - Session starts a fresh derived `BlockLayout` state after a changed post-image because
   public block values may retain IDs while replacing content and canonical visible order.
 - `Fixtures/DownstreamAppKitHost` compile-runs the contract through `SlopadAppKit` alone;

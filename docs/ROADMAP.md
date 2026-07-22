@@ -15,7 +15,8 @@ platform extension philosophy.
   submit an `EditorDocumentPatch` full post-image. Its opaque source exact-CASes Session
   epoch, committed revision, and selection; composition and stale sources are typed
   rejections. Valid changed post-images commit as one model transaction and one update,
-  while exact no-ops create no revision or history.
+  while exact no-ops create no revision or history. Mutable content canonicality is
+  checked with typed rollback, and deep hierarchy/cycle validation is iterative.
 - The SwiftPM target split is complete. `SlopadEngine` composes `SlopadEditorModel` and
   `SlopadBlockLayout`; those two targets do not import each other.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical

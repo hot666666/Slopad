@@ -25,7 +25,9 @@ public struct EditorDocumentSource: Hashable, Sendable {
 
 // MARK: - Selected Text
 
-public struct EditorSelectedTextFragment: Hashable, Codable, Sendable {
+/// A Session-produced output projection. Hosts may encode it for review transport but
+/// cannot construct or decode unchecked fragment values through the public API.
+public struct EditorSelectedTextFragment: Hashable, Encodable, Sendable {
     public let blockID: BlockID
     public let parentID: BlockID?
     public let kind: BlockKind
@@ -34,7 +36,7 @@ public struct EditorSelectedTextFragment: Hashable, Codable, Sendable {
     /// Sliced content whose inline mark ranges are relative to this fragment.
     public let content: BlockContent
 
-    public init(
+    init(
         blockID: BlockID,
         parentID: BlockID?,
         kind: BlockKind,
@@ -49,24 +51,24 @@ public struct EditorSelectedTextFragment: Hashable, Codable, Sendable {
     }
 }
 
-public struct EditorSelectedText: Hashable, Codable, Sendable {
+public struct EditorSelectedText: Hashable, Encodable, Sendable {
     /// Fragments in canonical block depth-first order, independent of selection direction.
     public let fragments: [EditorSelectedTextFragment]
 
-    public init(fragments: [EditorSelectedTextFragment]) {
+    init(fragments: [EditorSelectedTextFragment]) {
         self.fragments = fragments
     }
 }
 
 // MARK: - Selected Block Subtrees
 
-public struct EditorSelectedBlocks: Hashable, Codable, Sendable {
+public struct EditorSelectedBlocks: Hashable, Encodable, Sendable {
     /// Canonically ordered selected roots after removing roots covered by an ancestor.
     public let rootBlockIDs: [BlockID]
     /// Every selected root and descendant in canonical depth-first order.
     public let blocks: [EditorBlockInput]
 
-    public init(rootBlockIDs: [BlockID], blocks: [EditorBlockInput]) {
+    init(rootBlockIDs: [BlockID], blocks: [EditorBlockInput]) {
         self.rootBlockIDs = rootBlockIDs
         self.blocks = blocks
     }
@@ -74,7 +76,7 @@ public struct EditorSelectedBlocks: Hashable, Codable, Sendable {
 
 // MARK: - Selected Content
 
-public enum EditorSelectedContent: Hashable, Codable, Sendable {
+public enum EditorSelectedContent: Hashable, Encodable, Sendable {
     case none
     case text(EditorSelectedText)
     case blocks(EditorSelectedBlocks)
@@ -82,7 +84,8 @@ public enum EditorSelectedContent: Hashable, Codable, Sendable {
 
 // MARK: - Document Context Snapshot
 
-/// A review-oriented canonical document context captured at one exact Session state.
+/// A Session-produced review-oriented canonical document context captured at one exact
+/// Session state.
 ///
 /// Unlike `EditorDocumentSnapshot`, this value includes selection and an opaque CAS source
 /// for a later `applyDocumentPatch(_:)` call. It is not a persistence snapshot.
@@ -92,7 +95,7 @@ public struct EditorDocumentContextSnapshot: Hashable, Sendable {
     public let selection: EditorSelection
     public let selectedContent: EditorSelectedContent
 
-    public init(
+    init(
         source: EditorDocumentSource,
         document: EditorDocumentSnapshot,
         selection: EditorSelection,
@@ -131,6 +134,7 @@ public enum EditorDocumentTransactionError: Error, Hashable, Sendable {
     case staleSource
     case emptyDocument
     case duplicateBlockID(BlockID)
+    case invalidContent(blockID: BlockID)
     case missingParent(blockID: BlockID, parentID: BlockID)
     case cycleDetected(BlockID)
     case noncanonicalDepthFirstOrder

@@ -254,6 +254,12 @@ committed revision, and one AppKit update callback; one undo restores the comple
 document and selection. An exact document-and-selection no-op produces no revision,
 history entry, callback, or render synchronization.
 
+Context and selected-content values are output-only Session projections. Their public
+fields can be encoded for a review service, but their initializers and unchecked decoding
+are not public. Only `EditorDocumentPatch` is a host-constructed input. Patch validation
+also rejects a block whose mutable `BlockContent` marks are no longer normalized for its
+current text.
+
 The two full-document reads have deliberately different lifetimes:
 
 | API | Purpose | Includes selection | Valid for later mutation |

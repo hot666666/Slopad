@@ -133,8 +133,13 @@ used by `Session` when it builds `BlockLayout` requests.
   carries exact selection and structured selected content. Neither viewport render state
   nor a persistence revision alone can authorize an `EditorDocumentPatch`.
 - A public document patch is a complete canonical DFS post-image, not a command replay.
-  Invalid structure or selection returns a typed error without mutation; an exact no-op
-  creates no revision, history entry, update callback, or render work.
+  Invalid structure, noncanonical mutable `BlockContent`, or invalid selection returns a
+  typed error without mutation; an exact no-op creates no revision, history entry, update
+  callback, or render work. Validation of unbounded public hierarchy traversal must be
+  iterative rather than recursive.
+- Context and selected-content structs are output-only Session projections: keep their
+  initializers non-public and do not add unchecked `Decodable` conformance. The public
+  host-constructed input is `EditorDocumentPatch`.
 - `BlockLayout` owns visible order, y/height, hit/reveal geometry, marker projection, and
   layout invalidation. `EditorSession` assembles UI render descriptors and host-facing
   snapshots.

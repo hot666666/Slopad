@@ -5,6 +5,7 @@ import SlopadCoreModel
 package enum EditorDocumentReplacementError: Error, Hashable, Sendable {
     case emptyDocument
     case duplicateBlockID(BlockID)
+    case invalidContent(blockID: BlockID)
     case missingParent(blockID: BlockID, parentID: BlockID)
     case cycleDetected(BlockID)
     case noncanonicalDepthFirstOrder
@@ -78,6 +79,8 @@ extension EditorDocumentReplacementError {
             self = .emptyDocument
         case .duplicateBlockID(let blockID):
             self = .duplicateBlockID(blockID)
+        case .invalidContent(let blockID):
+            self = .invalidContent(blockID: blockID)
         case .missingParent(let blockID, let parentID):
             self = .missingParent(blockID: blockID, parentID: parentID)
         case .cycleDetected(let blockID):

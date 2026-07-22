@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 import SlopadCoreModel
@@ -47,10 +48,12 @@ struct EditorSessionAssistantEditorContractTests {
         // When
         let context = try session.documentContextSnapshot()
         let selectedText = try #require(selectedText(from: context.selectedContent))
+        let encodedSelectedContent = try JSONEncoder().encode(context.selectedContent)
 
         // Then
         #expect(context.document.blocks.map(\.id) == [root, child, tail])
         #expect(context.selection == .text(selection))
+        #expect(!encodedSelectedContent.isEmpty)
         #expect(selectedText.fragments.map(\.blockID) == [root, child])
         #expect(selectedText.fragments.map(\.sourceRange) == [TextRange(1, 5), TextRange(0, 3)])
         #expect(selectedText.fragments.map(\.content.text) == ["한글🙂Z", "둘째🚀"])
@@ -246,12 +249,42 @@ struct EditorSessionAssistantEditorContractTests {
         let c: BlockID = "c"
         let session = makeSession(blockID: a, text: "A", offset: 1)
         let context = try session.documentContextSnapshot()
+        var truncatedContent = BlockContent(
+            text: "abcd",
+            marks: [BlockContent.InlineMark(kind: .bold, range: TextRange(0, 4))]
+        )
+        truncatedContent.text = "a"
+        var overlappingContent = BlockContent(text: "abcd")
+        overlappingContent.marks = [
+            BlockContent.InlineMark(kind: .bold, range: TextRange(0, 3)),
+            BlockContent.InlineMark(kind: .bold, range: TextRange(2, 4)),
+        ]
+        var unsortedContent = BlockContent(text: "abcd")
+        unsortedContent.marks = [
+            BlockContent.InlineMark(kind: .italic, range: TextRange(2, 4)),
+            BlockContent.InlineMark(kind: .bold, range: TextRange(0, 1)),
+        ]
         let invalidCases: [([EditorBlockInput], EditorSelection, EditorDocumentTransactionError)] = [
             ([], .inactive, .emptyDocument),
             (
                 [EditorBlockInput(id: a), EditorBlockInput(id: a)],
                 .caret(blockID: a, offset: 0),
                 .duplicateBlockID(a)
+            ),
+            (
+                [EditorBlockInput(id: a, content: truncatedContent)],
+                .caret(blockID: a, offset: 0),
+                .invalidContent(blockID: a)
+            ),
+            (
+                [EditorBlockInput(id: a, content: overlappingContent)],
+                .caret(blockID: a, offset: 0),
+                .invalidContent(blockID: a)
+            ),
+            (
+                [EditorBlockInput(id: a, content: unsortedContent)],
+                .caret(blockID: a, offset: 0),
+                .invalidContent(blockID: a)
             ),
             (
                 [EditorBlockInput(id: a, parentID: b)],
@@ -294,6 +327,66 @@ struct EditorSessionAssistantEditorContractTests {
         #expect(session.editorModel.selection == context.selection)
         #expect(!session.historyState.canUndo)
         #expect(!session.historyState.canRedo)
+    }
+
+    @Test("매우 깊은 canonical hierarchy는 stack recursion 없이 한 transaction으로 적용된다")
+    func appliesDeepCanonicalHierarchyIteratively() throws {
+        // Given
+        let depth = 20_000
+        let blockIDs = (0..<depth).map { BlockID("deep-\($0)") }
+        let replacement = blockIDs.enumerated().map { index, blockID in
+            EditorBlockInput(
+                id: blockID,
+                parentID: index == 0 ? nil : blockIDs[index - 1],
+                content: BlockContent(text: "\(index)")
+            )
+        }
+        let session = makeSession(blockID: "original", text: "before", offset: 0)
+        let context = try session.documentContextSnapshot()
+        let patch = EditorDocumentPatch(
+            source: context.source,
+            replacementBlocks: replacement,
+            selectionAfter: .caret(blockID: blockIDs[depth - 1], offset: 0)
+        )
+
+        // When
+        let update = try session.applyDocumentPatch(patch)
+        let snapshot = session.documentSnapshot
+
+        // Then
+        #expect(update?.committedDocumentRevision?.rawValue == 1)
+        #expect(snapshot.blocks.count == depth)
+        #expect(snapshot.blocks.first?.id == blockIDs[0])
+        #expect(snapshot.blocks.last?.id == blockIDs[depth - 1])
+        #expect(snapshot.blocks.last?.parentID == blockIDs[depth - 2])
+    }
+
+    @Test("매우 긴 parent cycle은 stack trap 없이 typed error로 rollback된다")
+    func rejectsDeepCycleIteratively() throws {
+        // Given
+        let depth = 20_000
+        let blockIDs = (0..<depth).map { BlockID("cycle-\($0)") }
+        let replacement = blockIDs.enumerated().map { index, blockID in
+            EditorBlockInput(
+                id: blockID,
+                parentID: blockIDs[(index + 1) % depth]
+            )
+        }
+        let session = makeSession(blockID: "original", text: "before", offset: 0)
+        let context = try session.documentContextSnapshot()
+        let patch = EditorDocumentPatch(
+            source: context.source,
+            replacementBlocks: replacement,
+            selectionAfter: .inactive
+        )
+
+        // When
+        let error = captureError { try session.applyDocumentPatch(patch) }
+
+        // Then
+        #expect(error == .cycleDetected(blockIDs[0]))
+        #expect(session.documentSnapshot == context.document)
+        #expect(!session.historyState.canUndo)
     }
 
     @Test("exact no-op patch는 revision update와 history를 만들지 않는다")
