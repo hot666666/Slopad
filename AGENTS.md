@@ -29,6 +29,11 @@ only for a committed canonical mutation. Hosts read the matching complete snapsh
 Session-owning executor before transferring that `Sendable` value elsewhere. The revision
 is scoped to one Session and must not be treated as a database revision.
 
+The review-before-apply projection is `EditorDocumentContextSnapshot`, not a persistence
+snapshot. Its opaque source exact-CASes Session epoch, committed revision, and captured
+selection. `EditorDocumentPatch` is a canonical full post-image applied as one model
+transaction. Active composition must be committed before context capture or apply.
+
 The engine does not own platform widgets. Concrete views such as `NSTextView` or
 `UITextView` are not engine targets. A native surface collects OS callbacks, forwards them
 as engine input, and draws engine snapshots. `SlopadEngine` decides semantic behavior such
@@ -63,7 +68,8 @@ sources of truth.
   package canonical `Document`/`Block` values. It is not a dump for internal projections
   or generic helpers.
 - `SlopadEditorModel`: owns the storable canonical `Document`, `Selection`, `Command`,
-  `Transaction`, `History`, and semantic `Change`. It must not import
+  `Transaction`, `History`, semantic `Change`, and validation/atomic application of a
+  canonical full document post-image. It must not import
   `SlopadBlockLayout`, and it must not contain live composition, layout, y offsets,
   TextKit rects, or render damage.
 - `SlopadBlockLayout`: manages block heights/y positions, visible ranges,
@@ -113,7 +119,9 @@ used by `Session` when it builds `BlockLayout` requests.
   values.
 - A range inside one block is `Text Selection`; selection of one or more visible blocks is
   `Block Selection`; no selection is `Inactive Selection`. Current multi-block work is
-  modeled as block selection, not cross-block text ranges.
+  modeled as block selection, not cross-block text ranges. The assistant context projection
+  still handles a public cross-block `TextSelection` value by producing canonical fragments;
+  that projection does not add cross-block native editing semantics.
 - IME/marked text is not canonical document content. It is a live composition overlay in
   Session runtime state. Ordinary editing exits such as focusing another block, entering
   block selection, or clicking empty space commit composition first. It is discarded only
@@ -121,6 +129,12 @@ used by `Session` when it builds `BlockLayout` requests.
 - `EditorDocumentSnapshot` is the complete canonical host projection in depth-first
   preorder. Selection, layout, scrolling, and live composition do not advance its
   Session-local revision; explicit and implicit composition commits do.
+- `EditorDocumentContextSnapshot` is a short-lived review/CAS projection that additionally
+  carries exact selection and structured selected content. Neither viewport render state
+  nor a persistence revision alone can authorize an `EditorDocumentPatch`.
+- A public document patch is a complete canonical DFS post-image, not a command replay.
+  Invalid structure or selection returns a typed error without mutation; an exact no-op
+  creates no revision, history entry, update callback, or render work.
 - `BlockLayout` owns visible order, y/height, hit/reveal geometry, marker projection, and
   layout invalidation. `EditorSession` assembles UI render descriptors and host-facing
   snapshots.
@@ -189,6 +203,10 @@ used by `Session` when it builds `BlockLayout` requests.
   consistent. Programmatic scrolling and composition flushes must preserve the specified
   viewport and responder ownership. Package-only no-render hooks are reserved for
   development targets that explicitly perform the later render/sync step.
+- Treat `documentContextSnapshot()` and `applyDocumentPatch(_:)` as synchronized sibling
+  boundaries rather than `AppKitEditorAction` cases. AppKit rejects native marked text and
+  forwards; Session owns composition/source CAS and projection; EditorModel owns atomic
+  validation and history.
 
 ## Working Principles
 

@@ -160,6 +160,19 @@ public final class AppKitEditorViewController: NSViewController {
     public var documentSnapshot: EditorDocumentSnapshot {
         session.documentSnapshot
     }
+
+    /// Captures the complete canonical document, exact selection, and selected content
+    /// for a later compare-and-swap `applyDocumentPatch(_:)` call.
+    ///
+    /// Native marked text and Session composition must be committed before capture.
+    public func documentContextSnapshot()
+        throws(EditorDocumentTransactionError) -> EditorDocumentContextSnapshot
+    {
+        guard !hasActiveNativeMarkedText else {
+            throw .activeComposition
+        }
+        return try session.documentContextSnapshot()
+    }
     public private(set) var snapshot: EditorSessionSnapshot?
     public var blockChromeRenderer: any AppKitBlockChromeRenderer
     public var onSnapshotChanged: ((EditorSessionSnapshot) -> Void)?
@@ -356,6 +369,30 @@ public final class AppKitEditorViewController: NSViewController {
             makeFirstResponder: makeFirstResponder,
             scrollSelectionIntoView: scrollSelectionIntoView
         )
+    }
+
+    /// Applies one canonical full-document post-image and synchronizes the AppKit surface.
+    ///
+    /// The source must still match the controller's Session instance, committed document
+    /// revision, and exact selection. A successful mutation publishes exactly one
+    /// `onUpdate` callback before this method returns. An exact semantic no-op publishes
+    /// no callback and returns `nil`.
+    @discardableResult
+    public func applyDocumentPatch(
+        _ patch: EditorDocumentPatch
+    ) throws(EditorDocumentTransactionError) -> EditorUpdate? {
+        guard !hasActiveNativeMarkedText else {
+            throw .activeComposition
+        }
+        guard let update = try session.applyDocumentPatch(patch) else { return nil }
+
+        onUpdate?(update)
+        let shouldKeepFirstResponder = view.window?.firstResponder === editorCanvasView
+        renderAndSyncSurface(
+            makeFirstResponder: shouldKeepFirstResponder,
+            scrollSelectionIntoView: true
+        )
+        return update
     }
 
     /// Commits live marked text while preserving viewport and responder ownership.

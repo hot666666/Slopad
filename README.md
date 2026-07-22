@@ -213,6 +213,7 @@ The ordinary host surface is organized by intent rather than by native callback 
 | Change default text presentation | `updateEditorStyle(_:)` | One `AppKitTextSystem` replaces layout and drawing together |
 | Customize block decoration | `AppKitBlockChromeRenderer` | Host draws clipped chrome; adapter still draws text and feedback |
 | Observe and persist | `onUpdate`, `snapshot`, `documentSnapshot` | Render state and complete canonical state remain separate projections |
+| Review and atomically apply an external edit | `documentContextSnapshot()`, `applyDocumentPatch(_:)` | Session owns CAS; EditorModel validates and commits one full post-image transaction |
 
 Canonical persistence content is a separate public projection from render snapshots.
 `EditorUpdate.committedDocumentRevision` advances only for committed content or structure
@@ -221,6 +222,44 @@ read `AppKitEditorViewController.documentSnapshot` synchronously from `onUpdate`
 snapshot contains every canonical block in depth-first preorder and excludes selection,
 viewport, layout, scroll, and live IME composition. `visibleBlocks` is never a persistence
 source. Revisions are monotonic only within one Session and are not host storage revisions.
+
+### Reviewable Document Transactions
+
+External assistants and other review-before-apply workflows use a sibling contract rather
+than mutating `EditorModel` or replaying low-level commands:
+
+```swift
+let context = try controller.documentContextSnapshot()
+
+// Build and review a complete canonical DFS post-image from context.document and
+// context.selectedContent before applying it.
+let patch = EditorDocumentPatch(
+    source: context.source,
+    replacementBlocks: reviewedBlocks,
+    selectionAfter: reviewedSelection
+)
+let update = try controller.applyDocumentPatch(patch)
+```
+
+The source token is opaque and bound to the exact Session instance, committed document
+revision, and captured selection. A document commit, selection-only move, or
+`resetDocument` makes it stale. Query and apply reject active composition with a typed
+error; an AppKit host calls `commitActiveComposition()` and captures a new context.
+
+`selectedContent` preserves reviewable structure. A cross-block text selection becomes
+canonical-order fragments with source ranges and fragment-relative inline marks. A block
+selection removes descendant duplicate roots and includes each selected subtree in full
+canonical DFS order. Applying a changed full post-image is one model transaction, one
+committed revision, and one AppKit update callback; one undo restores the complete prior
+document and selection. An exact document-and-selection no-op produces no revision,
+history entry, callback, or render synchronization.
+
+The two full-document reads have deliberately different lifetimes:
+
+| API | Purpose | Includes selection | Valid for later mutation |
+| --- | --- | --- | --- |
+| `documentSnapshot` | Persistence/debounced storage | No | No; revision is only an observation signal |
+| `documentContextSnapshot()` | Review and optimistic atomic apply | Yes, plus structured selected content | Yes, only through its exact opaque source token |
 
 SwiftPM keeps these responsibilities in separate targets. An ordinary macOS target needs
 one product dependency and one import:

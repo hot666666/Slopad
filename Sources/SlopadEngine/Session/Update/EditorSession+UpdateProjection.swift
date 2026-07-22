@@ -101,7 +101,10 @@ extension EditorSession {
                 .moveBlocks(let blockIDs):
                 if !blockIDs.isEmpty { return true }
 
-            case .resetDocumentToEmptyParagraph, .splitBlock, .mergeBlocks:
+            case .replaceDocument,
+                .resetDocumentToEmptyParagraph,
+                .splitBlock,
+                .mergeBlocks:
                 return true
             }
         }
@@ -114,6 +117,8 @@ extension EditorSession {
 extension BlockLayoutMutation {
     fileprivate init?(operation: EditorOperation) {
         switch operation {
+        case .replaceDocument:
+            return nil
         case .splitBlock(let original, let created):
             self = .splitBlock(original: original, created: created)
         case .mergeBlocks(let target, let source):

@@ -46,14 +46,18 @@ private struct DownstreamAppKitHost {
             blockChromeRenderer: HostChromeRenderer()
         )
 
-        exercisePublicHostContract(controller, blockID: blockID, style: style)
+        do {
+            try exercisePublicHostContract(controller, blockID: blockID, style: style)
+        } catch {
+            fatalError("Public SlopadAppKit contract failed: \(error)")
+        }
     }
 
     private static func exercisePublicHostContract(
         _ controller: AppKitEditorViewController,
         blockID: BlockID,
         style: AppKitEditorStyle
-    ) {
+    ) throws {
         controller.onSnapshotChanged = { _ in }
         controller.onUpdate = { [weak controller] update in
             guard let revision = update.committedDocumentRevision else { return }
@@ -65,6 +69,40 @@ private struct DownstreamAppKitHost {
         _ = controller.editorStyle == style
         _ = controller.snapshot
         _ = controller.documentSnapshot
+
+        let assistantContext: EditorDocumentContextSnapshot =
+            try controller.documentContextSnapshot()
+        switch assistantContext.selectedContent {
+        case .none:
+            break
+        case .text(let selectedText):
+            _ = selectedText.fragments.map(\.sourceRange)
+        case .blocks(let selectedBlocks):
+            _ = selectedBlocks.rootBlockIDs
+        }
+        let assistantUpdate = try controller.applyDocumentPatch(
+            EditorDocumentPatch(
+                source: assistantContext.source,
+                replacementBlocks: [
+                    EditorBlockInput(
+                        id: blockID,
+                        kind: .todo(isChecked: true),
+                        content: BlockContent(text: "Updated by assistant contract")
+                    )
+                ],
+                selectionAfter: .caret(blockID: blockID, offset: 7)
+            )
+        )
+        precondition(assistantUpdate?.committedDocumentRevision?.rawValue == 1)
+        let noOpContext = try controller.documentContextSnapshot()
+        let noOpUpdate = try controller.applyDocumentPatch(
+            EditorDocumentPatch(
+                source: noOpContext.source,
+                replacementBlocks: noOpContext.document.blocks,
+                selectionAfter: noOpContext.selection
+            )
+        )
+        precondition(noOpUpdate == nil)
 
         controller.renderAndSyncSurface(makeFirstResponder: false)
         controller.updateEditorStyle(

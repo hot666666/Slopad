@@ -145,7 +145,9 @@ An ordinary macOS host declares only the `SlopadAppKit` product and writes
 `import SlopadAppKit`. The facade exports a curated platform vocabulary: the controller,
 `AppKitEditorAction`, `AppKitEditorStyle`, block chrome contract, host document inputs,
 selection values, updates, render snapshots, and the complete `EditorDocumentSnapshot`.
-It does not duplicate those values or own runtime state.
+It also exports the document context, selected-content, patch, source, and typed error
+values used by review-before-apply integrations. It does not duplicate those values or own
+runtime state.
 
 The default controller surface is intentionally narrower than the raw engine surface.
 Programmatic editing goes through `perform(_:)` with a context-free
@@ -211,6 +213,82 @@ commit and one for the action—while its return value is the requested action's
 lifecycle operation for save, document replacement, or close. Both paths re-read the
 canonical result when commit-time normalization, such as a Markdown prefix shortcut,
 changes the native buffer text or selection.
+
+## Reviewable Atomic Document Transactions
+
+`documentContextSnapshot()` and `applyDocumentPatch(_:)` are sibling Session/controller
+APIs. They do not become `AppKitEditorAction` cases because they carry a captured canonical
+document context rather than a context-free host intent. The engine contract is available
+to complete custom adapters, and the AppKit controller adds native marked-text rejection
+plus synchronized surface forwarding.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Host as Reviewing host or assistant coordinator
+    participant AppKit as AppKitEditorViewController
+    participant Session as EditorSession
+    participant Model as EditorModel
+    participant Surface as AppKit surface and observers
+
+    Host->>AppKit: documentContextSnapshot()
+    AppKit->>AppKit: reject native marked text
+    AppKit->>Session: documentContextSnapshot()
+    Session->>Session: reject composition
+    Session-->>Host: full document + exact selection + selected content + opaque source
+    Note over Host: Build and review canonical full post-image
+    Host->>AppKit: applyDocumentPatch(source, replacementBlocks, selectionAfter)
+    AppKit->>Session: synchronized forwarding
+    Session->>Session: exact CAS(epoch + revision + selection)
+    Session->>Model: validate and replace full post-image
+    alt empty, duplicate, missing parent, cycle, non-DFS, or invalid selection
+        Model-->>Host: typed error; state unchanged
+    else exact document and selection no-op
+        Model-->>Host: nil; no history, revision, callback, or render
+    else changed post-image
+        Model-->>Session: one transaction and one semantic change
+        Session-->>AppKit: one committed-revision EditorUpdate
+        AppKit->>Surface: one callback, then native/render convergence
+        AppKit-->>Host: matching update
+    end
+```
+
+The opaque `EditorDocumentSource` is a compare-and-swap token, not a persistence or API
+version. It captures a per-Session epoch, the committed document revision, and exact
+selection. All three must match. The epoch rejects reset ABA even when a replacement
+Session starts again at revision zero with the same document and selection; exact
+selection comparison rejects a selection-only move that does not advance the persistence
+revision.
+
+Selection projection is canonical, not viewport-derived:
+
+- `TextSelection` may span blocks for context projection. Fragments are ordered by the
+  canonical document DFS, carry block ID, parent, kind, and source range, and slice
+  `BlockContent` with inline marks rebased to fragment-relative offsets.
+- `BlockSelection` is normalized to canonically ordered roots after removing descendants
+  already covered by a selected ancestor. Each root's complete subtree is then emitted in
+  canonical DFS order.
+- caret and inactive selections produce `.none` selected content while the exact selection
+  remains present in the context and source CAS.
+
+The full post-image is validated before mutation: it must be non-empty, have unique IDs,
+reference existing parents, be acyclic, already use canonical parent-before-child DFS
+order, and contain a valid selection. `EditorModel` installs it as one snapshot-backed
+transaction. Because an external post-image can replace content and canonical visible
+order while retaining block IDs, Session starts a fresh derived `BlockLayout` state before
+the next synchronized render.
+
+### Snapshot Purpose Boundary
+
+| Projection | Primary consumer | Selection/composition | Lifetime and authority |
+| --- | --- | --- | --- |
+| `EditorSessionSnapshot` | Renderer/platform adapter | Effective selection and live composition | Viewport/runtime projection only |
+| `EditorDocumentSnapshot` | Persistence host | Excludes both | Complete immutable canonical read; revision is a Session-local observation signal |
+| `EditorDocumentContextSnapshot` | Review-before-apply host | Exact selection and structured selected content; composition is rejected | Short-lived CAS context; only its opaque source can authorize `applyDocumentPatch(_:)` |
+
+`EditorDocumentContextSnapshot.document` reuses `EditorDocumentSnapshot` so canonical
+tree representation has one public shape. The context does not turn the persistence
+snapshot or its revision into a mutation credential.
 
 ## Default AppKit Path and Full Replacement
 
@@ -304,9 +382,9 @@ decoration; it does not participate in text shaping.
 
 | Owner | Owns | Must not own |
 | --- | --- | --- |
-| `SlopadEditorModel` | Stored document, block identity, selection, commands, transactions, history, semantic changes | Layout caches, y offsets, native callbacks, live platform geometry |
+| `SlopadEditorModel` | Stored document, block identity, selection, commands, transactions, history, semantic changes, validated atomic full post-image replacement | Layout caches, y offsets, native callbacks, live platform geometry |
 | `SlopadBlockLayout` | Effective content projection, visible order, y/height index, text-layout cache, invalidation, hit/reveal geometry, marker projection | Canonical mutation, command semantics, AppKit/TextKit2 types |
-| `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, render snapshot/update assembly, on-demand complete canonical projection | Platform widgets, canonical storage duplication, backend implementation details |
+| `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, render snapshot/update assembly, persistence projection, exact context/source CAS and selected-content projection | Platform widgets, canonical storage duplication, backend implementation details |
 | `SlopadAppKit` | Curated ordinary-host import surface for the default macOS stack | Runtime state, editor semantics, native callback handling, backend implementation |
 | `SlopadAppKitUI` | Native callback translation, native text pipeline integration, fragment/feedback drawing order, focus/scroll/canvas synchronization | Editor semantics, canonical state, arbitrary whole-text paint hooks |
 | `SlopadAppKitTextKit` | TextKit2 fragment layout, caret/selection geometry, text hit testing, bidi/Unicode word navigation, attributed content and drawing helpers | Native view/input host, canonical editor state, Session orchestration |
@@ -368,6 +446,12 @@ layout, and live composition do not advance the revision. The projection is `Sen
 the Session remains confined. `EditorSessionSnapshot.visibleBlocks` is a viewport render
 projection and must never be reconstructed into persistence content.
 
+Review-before-apply reads use `EditorDocumentContextSnapshot` instead. Its opaque source
+is intentionally invalidated by document, selection, or Session identity changes and must
+not be retained as a persistence revision. Active composition is rejected so canonical
+content, exact selection, native marked text, and the later post-image never describe
+different states.
+
 ### Outer Consumers Verify; They Do Not Define
 
 `SlopadDebugApp`, benchmark targets, tests, and fixtures consume production layers. They
@@ -396,5 +480,6 @@ Related decisions: [ADR 0001](../ADR/0001-headless-session-facade.md),
 [ADR 0003](../ADR/0003-text-layout-backend-seam.md),
 [ADR 0007](../ADR/0007-appkit-ui-adapter-package.md),
 [ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md),
-[ADR 0009](../ADR/0009-publish-committed-document-snapshots.md), and
-[ADR 0010](../ADR/0010-appkit-platform-facade.md).
+[ADR 0009](../ADR/0009-publish-committed-document-snapshots.md),
+[ADR 0010](../ADR/0010-appkit-platform-facade.md), and
+[ADR 0011](../ADR/0011-reviewable-atomic-document-transactions.md).

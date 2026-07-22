@@ -1,3 +1,4 @@
+import Foundation
 import SlopadBlockLayout
 import SlopadCoreModel
 import SlopadEditorModel
@@ -28,7 +29,7 @@ public final class EditorSession {
     /// composition state.
     public var documentSnapshot: EditorDocumentSnapshot {
         EditorDocumentSnapshot(
-            revision: EditorDocumentRevision(rawValue: documentChangeRevision),
+            revision: currentDocumentRevision,
             blocks: editorModel.document.editorBlockInputs
         )
     }
@@ -47,6 +48,7 @@ public final class EditorSession {
     var textDoubleClickSelection: (blockID: BlockID, wordRange: TextRange)?
     var textNavigationRuntimeContext: EditorSessionTextNavigationRuntimeContext?
     private var compositionRevisionCounter: Int
+    let documentContextEpoch: UUID
     private var documentChangeRevision: UInt64
     private var hasPendingDocumentChange: Bool
     #if SLOPAD_BENCHMARK_INSTRUMENTATION
@@ -72,6 +74,7 @@ public final class EditorSession {
         self.textDoubleClickSelection = nil
         self.textNavigationRuntimeContext = nil
         self.compositionRevisionCounter = 0
+        self.documentContextEpoch = UUID()
         self.documentChangeRevision = 0
         self.hasPendingDocumentChange = false
         #if SLOPAD_BENCHMARK_INSTRUMENTATION
@@ -110,6 +113,10 @@ public final class EditorSession {
     }
 
     // MARK: - Committed Document Change
+
+    var currentDocumentRevision: EditorDocumentRevision {
+        EditorDocumentRevision(rawValue: documentChangeRevision)
+    }
 
     func recordDocumentChange() {
         hasPendingDocumentChange = true

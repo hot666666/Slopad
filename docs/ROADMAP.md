@@ -11,6 +11,11 @@ platform extension philosophy.
   host can read a viewport-independent full canonical `EditorDocumentSnapshot` on demand;
   selection, scrolling, layout, and live IME composition do not publish persistence
   changes.
+- Review-before-apply integrations can capture an `EditorDocumentContextSnapshot` and
+  submit an `EditorDocumentPatch` full post-image. Its opaque source exact-CASes Session
+  epoch, committed revision, and selection; composition and stale sources are typed
+  rejections. Valid changed post-images commit as one model transaction and one update,
+  while exact no-ops create no revision or history.
 - The SwiftPM target split is complete. `SlopadEngine` composes `SlopadEditorModel` and
   `SlopadBlockLayout`; those two targets do not import each other.
 - `SlopadCoreModel` contains only public vocabulary, backend seams, and package canonical
@@ -45,7 +50,8 @@ platform extension philosophy.
   `AppKitEditorStyle` value configures TextKit2 geometry, drawing, IME decoration, and
   block chrome style together, including during runtime replacement.
 - `Fixtures/DownstreamAppKitHost` compile-checks the intended downstream API with one
-  `SlopadAppKit` product dependency and one regular import.
+  `SlopadAppKit` product dependency and one regular import, and executes the public
+  context/patch round trip without underlying-module access.
 - [Architecture](ARCHITECTURE.md) records the compiler dependency graph, runtime owner
   flow, chrome-only AppKit extension boundary, and complete adapter/backend replacement
   path.
