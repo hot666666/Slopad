@@ -5,11 +5,22 @@ This document explains the current Slopad structure and the principles used to e
 [`README.md`](../README.md) is the short structural map, and the ADRs record why durable
 boundaries were chosen.
 
+The diagrams deliberately separate two different relationships:
+
+- **SwiftPM dependency arrows** describe which target can import another target at
+  compile time.
+- **Runtime collaboration arrows** describe which object owns state and which values or
+  callbacks cross an owner boundary.
+
+`SlopadAppKit` appears in the dependency graph because it is a module/product facade. It
+does not appear as a runtime owner because it creates no object and stores no editor state.
+
 ## Production Target Graph
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Layer - macOS"]
+        AppKit["SlopadAppKit<br/>ordinary host facade"]
         AppKitUI["SlopadAppKitUI<br/>AppKit adapter + native text pipeline integration"]
         AppKitTextKit["SlopadAppKitTextKit<br/>AppKit/TextKit2 backend"]
     end
@@ -25,6 +36,8 @@ flowchart TB
         DataStructure["SlopadDataStructure<br/>pure storage"]
     end
 
+    AppKit --> AppKitUI
+    AppKit --> Engine
     AppKitUI --> Engine
     AppKitUI --> AppKitTextKit
 
@@ -48,7 +61,9 @@ The graph is also a design constraint:
 - `SlopadEngine` composes both owners and translates semantic changes into layout work.
 - `SlopadAppKitTextKit` implements vocabulary defined by `SlopadCoreModel`; it does not
   depend on `SlopadEngine` or own a native input surface.
-- `SlopadAppKitUI` is the integration point for the default macOS path.
+- `SlopadAppKitUI` is the runtime integration point for the default macOS path.
+- `SlopadAppKit` is the recommended ordinary host product/import. It curates the default
+  AppKit stack without becoming another runtime or semantic owner.
 
 ## Outer-Edge Consumers
 
@@ -58,7 +73,7 @@ The graph is also a design constraint:
 | `SlopadUIBenchmarkApp` | AppKit frame and interaction benchmark harness | Executable product; not a reusable library surface |
 | `SlopadHeightBenchmark` | Height-index and layout benchmark | Development target without a product |
 | `SlopadSessionBenchmark` | Engine/session benchmark | Development target without a product |
-| `Fixtures/DownstreamAppKitHost` | Compile-time proof of ordinary public imports | Separate fixture package; must not use `@testable` or package access |
+| `Fixtures/DownstreamAppKitHost` | Compile-time proof of the one-product, one-import ordinary host contract | Separate fixture package; depends on and imports only `SlopadAppKit`, without `@testable` or package access |
 
 Tests also consume the target that owns the behavior under test. Their folder structure
 mirrors responsibility rather than production file symmetry.
@@ -96,7 +111,9 @@ flowchart LR
 
 The engine-side arrows to `SlopadAppKitTextKit` describe runtime dispatch through the
 injected `BlockTextLayoutProtocol` value, not a SwiftPM dependency on the concrete
-backend. The arrows describe collaboration, not shared ownership. In particular:
+backend. `SlopadAppKit` does not appear as a separate runtime box because it is a curated
+compile-time facade, not an additional controller or state owner. The arrows describe
+collaboration, not shared ownership. In particular:
 
 - The canonical `Document` and `Block` value types are defined in `SlopadCoreModel`, but
   `EditorModel` owns their stored state and mutation invariants.
@@ -122,6 +139,79 @@ backend. The arrows describe collaboration, not shared ownership. In particular:
   retains it only for the exact selection and effective request; selection, content,
   layout-backend, or request changes invalidate it.
 
+## Ordinary AppKit Host Facade and Advanced Seams
+
+An ordinary macOS host declares only the `SlopadAppKit` product and writes
+`import SlopadAppKit`. The facade exports a curated platform vocabulary: the controller,
+`AppKitEditorAction`, `AppKitEditorStyle`, block chrome contract, host document inputs,
+selection values, updates, render snapshots, and the complete `EditorDocumentSnapshot`.
+It does not duplicate those values or own runtime state.
+
+The default controller surface is intentionally narrower than the raw engine surface.
+Programmatic editing goes through `perform(_:)` with a context-free
+`AppKitEditorAction`; the controller captures its current viewport when the corresponding
+engine command needs geometry. `commitActiveComposition()` is the explicit lifecycle
+flush for a host that must persist, replace, or close a document. `focus`,
+`resetDocument`, `scrollDocument`, `updateEditorStyle`, `onUpdate`, render snapshots, and
+full-document snapshots remain synchronized host contracts. Raw `EditorInputEvent` and
+`currentViewport` are not public on `AppKitEditorViewController`.
+
+The narrower default facade does not remove the engine extension boundary.
+`EditorSession.handleInput(_:)`, `EditorInputEvent`, `EditorViewport`, and
+`BlockTextLayoutProtocol` remain public for a host implementing a complete custom adapter.
+The `SlopadEngine`, `SlopadAppKitUI`, and `SlopadAppKitTextKit` products also remain
+available as advanced or compatibility seams. This preserves existing integrations
+without making their lower-level assembly the recommended path.
+
+### Public Surface Migration
+
+| Concern | Previous ordinary-host usage | Facade usage | Why the owner changes |
+| --- | --- | --- | --- |
+| SwiftPM assembly | Depend on `SlopadEngine`, `SlopadAppKitUI`, and `SlopadAppKitTextKit` | Depend on `SlopadAppKit` | The default adapter/backend pair is one supported platform stack |
+| Imports | Import three implementation modules | `import SlopadAppKit` | The facade curates only ordinary host vocabulary |
+| Programmatic commands | Build `EditorInputEvent.Command`, sometimes with a host-supplied viewport | `perform(AppKitEditorAction)` | The controller already owns viewport and surface synchronization |
+| IME lifecycle flush | Inject raw `.commitComposition` | `commitActiveComposition()` | Native marked state and Session composition must settle together |
+| Style | Name the backend type `TextKitEditorStyle` | Use `AppKitEditorStyle` | The public value configures the complete default AppKit text system |
+| Complete custom adapter | Import and drive the same ordinary controller surface | Import `SlopadEngine` and implement the full adapter/backend pair | Raw input remains an advanced engine seam, not a default-controller escape hatch |
+
+### Synchronized Programmatic Action Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Host as Ordinary macOS host
+    participant Controller as AppKitEditorViewController
+    participant Native as Native input surface
+    participant Session as EditorSession
+    participant Model as EditorModel
+
+    Host->>Controller: perform(action)
+    alt live composition exists
+        Controller->>Session: handleInput(.commitComposition)
+        Session->>Model: commit composed replacement
+        Model-->>Session: semantic Change
+        Session-->>Controller: EditorUpdate(commit revision)
+        Controller->>Native: synchronize canonical text and selection
+        Controller-->>Host: onUpdate(commit)
+    end
+    Controller->>Controller: capture current viewport
+    Controller->>Session: handleInput(mapped command)
+    Session->>Model: apply command transaction
+    Model-->>Session: semantic Change
+    Session-->>Controller: EditorUpdate
+    Controller->>Native: render, reveal, focus, and selection sync
+    Controller-->>Host: onUpdate(action)
+    Controller-->>Host: return action update after surface convergence
+```
+
+`perform(_:)` commits live composition before applying the requested action. A call made
+during composition can therefore publish two `onUpdate` values—one for the composition
+commit and one for the action—while its return value is the requested action's update.
+`commitActiveComposition()` executes only the composition branch and is the explicit
+lifecycle operation for save, document replacement, or close. Both paths re-read the
+canonical result when commit-time normalization, such as a Markdown prefix shortcut,
+changes the native buffer text or selection.
+
 ## Default AppKit Path and Full Replacement
 
 ```mermaid
@@ -131,12 +221,17 @@ flowchart TB
     Seam["BlockTextLayoutProtocol<br/>coherent text-layout seam"]
 
     subgraph Default["Default AppKit Path"]
+        AppKit["SlopadAppKit<br/>curated host facade"]
         AppKitUI["SlopadAppKitUI<br/>owns native text pipeline integration"]
-        Chrome["AppKitBlockChromeRenderer + theme<br/>background · border · gutter · marker"]
+        TextSystem["AppKitTextSystem<br/>one AppKitEditorStyle configuration"]
+        Chrome["AppKitBlockChromeRenderer + style<br/>background · border · gutter · marker"]
         FragmentPass["Adapter-owned text pass<br/>TextKit2 fragments + effective live composition"]
         FeedbackPass["Adapter-owned feedback pass<br/>text selection · caret"]
         AppKitTextKit["SlopadAppKitTextKit"]
 
+        AppKit --> AppKitUI
+        AppKitUI --> TextSystem
+        TextSystem --> AppKitTextKit
         Chrome -.->|"clipped and isolated"| AppKitUI
         AppKitUI -->|"always draws after chrome"| FragmentPass
         FragmentPass --> FeedbackPass
@@ -150,8 +245,8 @@ flowchart TB
         CustomBackend["Coherent backend<br/>layout · hit test · drawing<br/>caret/selection · native text geometry"]
     end
 
-    Host -->|"standard integration"| AppKitUI
-    Host -->|"chrome/theme customization"| Chrome
+    Host -->|"standard integration"| AppKit
+    Host -->|"chrome/style customization"| Chrome
     AppKitUI --> Session
     AppKitTextKit -.->|"implements"| Seam
 
@@ -167,6 +262,44 @@ composition—or the following selection and caret pass. A complete native text 
 replacement remains possible, but it requires a separate platform adapter and a backend
 that keeps every geometry operation coherent.
 
+`AppKitEditorViewController` owns one `AppKitTextSystem`. A single
+`AppKitEditorStyle` value configures its TextKit2 layouter, fragment renderer, IME
+decoration geometry, and the style supplied to chrome rendering. Runtime style
+replacement constructs the new system as one unit, replaces the Session backend, and
+publishes the synchronized result. Geometry and drawing therefore cannot accidentally
+use different style revisions.
+
+### Coherent AppKit Text System
+
+```mermaid
+flowchart TB
+    Style["AppKitEditorStyle<br/>one configuration value"]
+    System["AppKitTextSystem<br/>atomic adapter-owned unit"]
+    Layouter["TextKitBlockTextLayouter<br/>measurement · fragments · hit test<br/>caret and selection geometry"]
+    Renderer["TextKitBlockRenderer<br/>attributed fragment drawing"]
+    Decoration["AppKitTextInputDecorationRenderer<br/>selection · caret · marked feedback"]
+    Chrome["AppKitBlockChromeRenderContext<br/>same style for host chrome"]
+    Session["EditorSession + BlockLayout<br/>same effective content request"]
+    Canvas["AppKit canvas passes<br/>chrome → text → feedback"]
+
+    Style --> System
+    System --> Layouter
+    System --> Renderer
+    System --> Decoration
+    System --> Chrome
+    Session -->|"measure and geometry"| Layouter
+    Session -->|"render descriptor"| Renderer
+    Layouter --> Decoration
+    Chrome --> Canvas
+    Renderer --> Canvas
+    Decoration --> Canvas
+```
+
+The unit is replaced as a whole. No public hook can swap only fragment painting while
+leaving measurement, hit testing, caret geometry, or native text feedback on another
+configuration. `AppKitBlockChromeRenderer` receives the same style but remains clipped
+decoration; it does not participate in text shaping.
+
 ## Responsibility Matrix
 
 | Owner | Owns | Must not own |
@@ -174,6 +307,7 @@ that keeps every geometry operation coherent.
 | `SlopadEditorModel` | Stored document, block identity, selection, commands, transactions, history, semantic changes | Layout caches, y offsets, native callbacks, live platform geometry |
 | `SlopadBlockLayout` | Effective content projection, visible order, y/height index, text-layout cache, invalidation, hit/reveal geometry, marker projection | Canonical mutation, command semantics, AppKit/TextKit2 types |
 | `SlopadEngine` / `EditorSession` | Host facade, runtime composition overlay, semantic-to-layout orchestration, render snapshot/update assembly, on-demand complete canonical projection | Platform widgets, canonical storage duplication, backend implementation details |
+| `SlopadAppKit` | Curated ordinary-host import surface for the default macOS stack | Runtime state, editor semantics, native callback handling, backend implementation |
 | `SlopadAppKitUI` | Native callback translation, native text pipeline integration, fragment/feedback drawing order, focus/scroll/canvas synchronization | Editor semantics, canonical state, arbitrary whole-text paint hooks |
 | `SlopadAppKitTextKit` | TextKit2 fragment layout, caret/selection geometry, text hit testing, bidi/Unicode word navigation, attributed content and drawing helpers | Native view/input host, canonical editor state, Session orchestration |
 | `SlopadCoreModel` | Cross-boundary vocabulary, backend seam values, canonical value definitions | Owner-specific caches, policies, projections, generic helpers |
@@ -213,7 +347,9 @@ target-internal implementation remains unannotated or private.
 A public AppKit operation returns only after its relevant Session snapshot, viewport,
 canvas, native input state, focus state, and observer publication agree. Package-only
 no-render helpers exist for development harnesses that explicitly perform the later
-render/synchronization step.
+render/synchronization step. Ordinary programmatic editing uses `perform(_:)`; lifecycle
+composition flushes use `commitActiveComposition()`. Native key, pointer, and IME event
+translation plus viewport acquisition remain inside the adapter.
 
 ### Mutable Sessions Stay on One Executor
 
@@ -237,7 +373,7 @@ projection and must never be reconstructed into persistence content.
 `SlopadDebugApp`, benchmark targets, tests, and fixtures consume production layers. They
 may inspect, measure, and prove a contract, but debug or benchmark convenience is not a
 reason to widen production API. `Fixtures/DownstreamAppKitHost` is the compile-time proof
-of the intended public AppKit surface.
+of the intended one-product `SlopadAppKit` surface.
 
 ## Change Decision Checklist
 
@@ -250,7 +386,7 @@ Before changing a layer boundary, answer these questions:
    owner or reverse edge?
 4. For text work, do layout, hit testing, caret/selection geometry, marked content, and
    drawing remain coherent?
-5. Is a requested customization truly chrome/theme, or does it require a separate
+5. Is a requested customization truly chrome/style, or does it require a separate
    adapter and backend?
 6. Can the behavior be verified through the owning layer and, for public AppKit changes,
    through the downstream fixture?
@@ -259,5 +395,6 @@ Related decisions: [ADR 0001](../ADR/0001-headless-session-facade.md),
 [ADR 0002](../ADR/0002-swiftpm-target-graph.md),
 [ADR 0003](../ADR/0003-text-layout-backend-seam.md),
 [ADR 0007](../ADR/0007-appkit-ui-adapter-package.md),
-[ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md), and
-[ADR 0009](../ADR/0009-publish-committed-document-snapshots.md).
+[ADR 0008](../ADR/0008-keep-editor-session-executor-confined.md),
+[ADR 0009](../ADR/0009-publish-committed-document-snapshots.md), and
+[ADR 0010](../ADR/0010-appkit-platform-facade.md).

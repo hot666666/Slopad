@@ -211,7 +211,10 @@ final class AppKitActiveInputController {
         sessionSelectedRange = nil
         owner?.handleNativeInputEvent(.commitComposition)
         syncSelectionFromNativeSurface()
-        requestRender(makeFirstResponder: true, preserveNativeSurface: true)
+        requestRender(
+            makeFirstResponder: true,
+            preserveNativeSurface: false
+        )
     }
 
     func replaceText(

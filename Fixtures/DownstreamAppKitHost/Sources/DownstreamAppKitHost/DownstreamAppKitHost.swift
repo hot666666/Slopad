@@ -1,7 +1,5 @@
 import AppKit
-import SlopadAppKitTextKit
-import SlopadAppKitUI
-import SlopadEngine
+import SlopadAppKit
 
 @MainActor
 private struct HostChromeRenderer: AppKitBlockChromeRenderer {
@@ -26,7 +24,7 @@ private struct HostChromeRenderer: AppKitBlockChromeRenderer {
 private struct DownstreamAppKitHost {
     static func main() {
         let blockID: BlockID = "fixture-root"
-        let style = TextKitEditorStyle(
+        let style = AppKitEditorStyle(
             fontName: "System",
             fontSize: 17,
             lineHeightMultiple: 1.3,
@@ -54,7 +52,7 @@ private struct DownstreamAppKitHost {
     private static func exercisePublicHostContract(
         _ controller: AppKitEditorViewController,
         blockID: BlockID,
-        style: TextKitEditorStyle
+        style: AppKitEditorStyle
     ) {
         controller.onSnapshotChanged = { _ in }
         controller.onUpdate = { [weak controller] update in
@@ -67,11 +65,10 @@ private struct DownstreamAppKitHost {
         _ = controller.editorStyle == style
         _ = controller.snapshot
         _ = controller.documentSnapshot
-        let viewport = controller.currentViewport()
 
         controller.renderAndSyncSurface(makeFirstResponder: false)
         controller.updateEditorStyle(
-            TextKitEditorStyle(
+            AppKitEditorStyle(
                 fontName: style.fontName,
                 fontSize: style.fontSize + 1,
                 lineHeightMultiple: style.lineHeightMultiple,
@@ -83,30 +80,29 @@ private struct DownstreamAppKitHost {
         )
         controller.focus(blockID: blockID, offset: 0)
         controller.replaceActiveText("Updated by the host")
-        _ = controller.handleInput(
-            .activeTextSelectionChanged(
-                blockID: blockID,
-                selectedRange: .point(0)
-            ),
+        controller.focus(blockID: blockID, offset: 0)
+        _ = controller.perform(
+            .insertText("Prefix: "),
             makeFirstResponder: false,
             scrollSelectionIntoView: false
         )
-        let viewportTextCommands: [EditorInputEvent.Command] = [
-            .deleteWordBackward(viewport: viewport),
-            .moveWordLeft(viewport: viewport),
-            .moveWordRight(viewport: viewport),
-            .extendCharacterLeft(viewport: viewport),
-            .extendCharacterRight(viewport: viewport),
-            .extendWordLeft(viewport: viewport),
-            .extendWordRight(viewport: viewport),
+        let viewportOwnedActions: [AppKitEditorAction] = [
+            .deleteWordBackward,
+            .moveWordLeft,
+            .moveWordRight,
+            .extendCharacterLeft,
+            .extendCharacterRight,
+            .extendWordLeft,
+            .extendWordRight,
         ]
-        for command in viewportTextCommands {
-            _ = controller.handleInput(
-                .command(command),
+        for action in viewportOwnedActions {
+            _ = controller.perform(
+                action,
                 makeFirstResponder: false,
                 scrollSelectionIntoView: false
             )
         }
+        _ = controller.commitActiveComposition()
         controller.scrollDocument(to: 0)
         controller.resetDocument(
             blocks: [
