@@ -350,7 +350,8 @@ public final class AppKitEditorViewController: NSViewController {
         makeFirstResponder: Bool = true,
         scrollSelectionIntoView: Bool = true
     ) -> EditorUpdate? {
-        handleInput(
+        _ = commitActiveComposition()
+        return handleInput(
             action.inputEvent(viewport: currentViewport()),
             makeFirstResponder: makeFirstResponder,
             scrollSelectionIntoView: scrollSelectionIntoView
@@ -363,13 +364,8 @@ public final class AppKitEditorViewController: NSViewController {
     /// matching complete value can be read immediately from `documentSnapshot`.
     @discardableResult
     public func commitActiveComposition() -> EditorUpdate? {
+        guard hasActiveNativeMarkedText || snapshot?.composition != nil else { return nil }
         let shouldKeepFirstResponder = view.window?.firstResponder === editorCanvasView
-        if hasActiveNativeMarkedText {
-            return activeInputController.unmarkText(
-                makeFirstResponder: shouldKeepFirstResponder
-            )
-        }
-        guard snapshot?.composition != nil else { return nil }
         return handleInput(
             .commitComposition,
             makeFirstResponder: shouldKeepFirstResponder,

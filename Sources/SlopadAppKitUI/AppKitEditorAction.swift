@@ -12,7 +12,6 @@ public enum AppKitEditorAction: Hashable, Sendable {
     case pasteText(String)
     case cutSelection
     case deleteBackward
-    case deleteForward
     case deleteToTextStart
     case deleteWordBackward
     case enter
@@ -53,8 +52,6 @@ public enum AppKitEditorAction: Hashable, Sendable {
             command = .cutSelection
         case .deleteBackward:
             command = .deleteBackward
-        case .deleteForward:
-            command = .deleteForward
         case .deleteToTextStart:
             command = .deleteToTextStart
         case .deleteWordBackward:
